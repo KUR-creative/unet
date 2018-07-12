@@ -3,8 +3,8 @@ from keras.preprocessing.image import ImageDataGenerator
 import numpy as np 
 import os
 import glob
-import skimage.io as io
-import skimage.transform as trans
+#import skimage.io as io
+#import skimage.transform as trans
 
 Sky = [128,128,128]
 Building = [128,0,0]
