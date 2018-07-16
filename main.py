@@ -21,16 +21,19 @@ data_gen_args = dict(rotation_range=0.2,
                     zoom_range=0.05,
                     horizontal_flip=True,
                     fill_mode='nearest')
-my_gen = dataGenerator(2, train_dir,'image','label',data_gen_args,save_to_dir = None)
-valid_gen = dataGenerator(2, valid_dir,'image','label',data_gen_args,save_to_dir = None)
-test_gen = dataGenerator(2, test_dir,'image','label',data_gen_args,save_to_dir = None)
+batch_size = 16
+learning_rate = 1.0e-7# 1.3e-7 ~ e-7 ~ 0.7e-7
+
+my_gen = dataGenerator(batch_size, train_dir,'image','label',data_gen_args,save_to_dir = None)
+valid_gen = dataGenerator(batch_size, valid_dir,'image','label',data_gen_args,save_to_dir = None)
+test_gen = dataGenerator(batch_size, test_dir,'image','label',data_gen_args,save_to_dir = None)
 
 print(my_gen)
 print(valid_gen)
-model = unet(lr=1.0e-7) # 1.3e-7 ~ e-7 ~ 0.7e-7
+model = unet(lr=learning_rate) 
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=1, epochs=100, 
+history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=100, 
                               validation_data=valid_gen, validation_steps=3,
                               callbacks=[model_checkpoint])
 '''
