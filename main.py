@@ -33,20 +33,28 @@ model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
 history = model.fit_generator(my_gen, steps_per_epoch=30, epochs=1, 
                               validation_data=eval_gen, validation_steps=3,
                               callbacks=[model_checkpoint])
-#print(dir(history))
-#print(history)
-print(history.history.keys())
-#print(history.epoch)
-#print(history.model)
+'''
 print('    train loss:', history.history['loss'])
 print('train accuracy:', history.history['acc'])
 print('    valid loss:', history.history['val_loss'])
 print('valid accuracy:', history.history['val_acc'])
+'''
 
-testGene = testGenerator("data/membrane/output")
-results = model.predict_generator(testGene,30,verbose=1)
-saveResult("data/membrane/output",results)
+import matplotlib.pyplot as plt
+plt.clf()
+plt.plot(history.history['loss'], 'b', label='train loss')
+plt.plot(history.history['val_loss'], 'r', label='valid loss')
+plt.xlabel('Epochs', fontsize=10)
+plt.ylabel('Loss', fontsize=10)
+plt.legend(fontsize=10)
+plt.draw()
+plt.show()
+
+output_gen = outputGenerator(output_dir,4)#,(512,512))
+results = model.predict_generator(output_gen,4,verbose=1)
+saveResult(output_dir,results)
 
 test = model.evaluate_generator(test_gen, steps=3)
 print(model.metrics_names)
 print(test)
+
