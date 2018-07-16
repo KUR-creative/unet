@@ -13,6 +13,7 @@ data_gen_args = dict(rotation_range=0.2,
                     fill_mode='nearest')
 my_gen = trainGenerator(2,'data/membrane/train','image','label',data_gen_args,save_to_dir = None)
 eval_gen = trainGenerator(2,'data/membrane/eval','image','label',data_gen_args,save_to_dir = None)
+test_gen = trainGenerator(2,'data/membrane/test','image','label',data_gen_args,save_to_dir = None)
 
 print(my_gen)
 print(eval_gen)
@@ -32,6 +33,10 @@ print('train accuracy:', history.history['acc'])
 print('    valid loss:', history.history['val_loss'])
 print('valid accuracy:', history.history['val_acc'])
 
-testGene = testGenerator("data/membrane/test")
+testGene = testGenerator("data/membrane/output")
 results = model.predict_generator(testGene,30,verbose=1)
-saveResult("data/membrane/test",results)
+saveResult("data/membrane/output",results)
+
+test = model.evaluate_generator(test_gen, steps=3)
+print(model.metrics_names)
+print(test)
