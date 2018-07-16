@@ -30,8 +30,8 @@ print(valid_gen)
 model = unet(lr=1.0e-7) # 1.3e-7 ~ e-7 ~ 0.7e-7
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=30, epochs=1, 
-                              validation_data=eval_gen, validation_steps=3,
+history = model.fit_generator(my_gen, steps_per_epoch=1, epochs=100, 
+                              validation_data=valid_gen, validation_steps=3,
                               callbacks=[model_checkpoint])
 '''
 print('    train loss:', history.history['loss'])
