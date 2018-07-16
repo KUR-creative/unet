@@ -1,8 +1,18 @@
 from model import *
 from data import *
 
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
+train_dir = 'data/seg_data/train/'
+valid_dir = 'data/seg_data/valid/'
+test_dir = 'data/seg_data/test/'
+output_dir = 'data/seg_data/output'
+save_model_path = 'unet_glends.hdf5'
+'''
+train_dir = 'data/membrane/train/'
+valid_dir = 'data/membrane/valid/'
+test_dir = 'data/membrane/test/'
+output_dir = 'data/membrane/output'
+save_model_path = 'unet_membrane.hdf5'
+'''
 
 data_gen_args = dict(rotation_range=0.2,
                     width_shift_range=0.05,
@@ -11,14 +21,14 @@ data_gen_args = dict(rotation_range=0.2,
                     zoom_range=0.05,
                     horizontal_flip=True,
                     fill_mode='nearest')
-my_gen = trainGenerator(2,'data/membrane/train','image','label',data_gen_args,save_to_dir = None)
-eval_gen = trainGenerator(2,'data/membrane/eval','image','label',data_gen_args,save_to_dir = None)
-test_gen = trainGenerator(2,'data/membrane/test','image','label',data_gen_args,save_to_dir = None)
+my_gen = dataGenerator(2, train_dir,'image','label',data_gen_args,save_to_dir = None)
+valid_gen = dataGenerator(2, valid_dir,'image','label',data_gen_args,save_to_dir = None)
+test_gen = dataGenerator(2, test_dir,'image','label',data_gen_args,save_to_dir = None)
 
 print(my_gen)
-print(eval_gen)
-model = unet()
-model_checkpoint = ModelCheckpoint('unet_membrane.hdf5', monitor='loss',
+print(valid_gen)
+model = unet(lr=1.0e-7) # 1.3e-7 ~ e-7 ~ 0.7e-7
+model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
 history = model.fit_generator(my_gen, steps_per_epoch=30, epochs=1, 
                               validation_data=eval_gen, validation_steps=3,
