@@ -33,7 +33,7 @@ loaded_model_path = 'unet_glends.hdf5'
 model = unet(pretrained_weights=loaded_model_path,lr=learning_rate) 
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=8750, 
+history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=7200, 
                               validation_data=valid_gen, validation_steps=3#)
                               ,callbacks=[model_checkpoint])
 '''
@@ -42,6 +42,12 @@ print('train accuracy:', history.history['acc'])
 print('    valid loss:', history.history['val_loss'])
 print('valid accuracy:', history.history['val_acc'])
 '''
+import yaml
+with open('history.yml','w') as f:
+    f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
+                            acc = list(map(np.asscalar,history.history['acc'])),
+                       val_loss = list(map(np.asscalar,history.history['val_loss'])),
+                        val_acc = list(map(np.asscalar,history.history['val_acc'])))))
 
 import matplotlib.pyplot as plt
 plt.clf()
