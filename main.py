@@ -22,7 +22,8 @@ data_gen_args = dict(rotation_range=0.2,
                     horizontal_flip=True,
                     fill_mode='nearest')
 batch_size = 16
-learning_rate = 1.0e-7# 1.3e-7 ~ e-7 ~ 0.7e-7
+learning_rate = 0.1e-7# 1.0e-7: best -> now, lower(slower). 
+#0 ~ 10000: 1.0e-7 later: 1.0e-8
 
 my_gen = dataGenerator(batch_size, train_dir,'image','label',data_gen_args,save_to_dir = None)
 valid_gen = dataGenerator(batch_size, valid_dir,'image','label',data_gen_args,save_to_dir = None)
@@ -33,7 +34,7 @@ loaded_model_path = 'unet_glends.hdf5'
 model = unet(pretrained_weights=loaded_model_path,lr=learning_rate) 
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=7200, 
+history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=1650, 
                               validation_data=valid_gen, validation_steps=3#)
                               ,callbacks=[model_checkpoint])
 '''
