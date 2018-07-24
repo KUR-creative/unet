@@ -5,7 +5,9 @@ train_dir = 'data/seg_data/train/'
 valid_dir = 'data/seg_data/valid/'
 test_dir = 'data/seg_data/test/'
 output_dir = 'data/seg_data/output'
-save_model_path = 'unet_glends.hdf5'
+#save_model_path = 'unet_glends.hdf5'
+save_model_path = 'modified_unet_glends.hdf5'
+history_path = 'modified_history.yml'
 '''
 train_dir = 'data/membrane/train/'
 valid_dir = 'data/membrane/valid/'
@@ -29,12 +31,15 @@ my_gen = dataGenerator(batch_size, train_dir,'image','label',data_gen_args,save_
 valid_gen = dataGenerator(batch_size, valid_dir,'image','label',data_gen_args,save_to_dir = None)
 test_gen = dataGenerator(batch_size, test_dir,'image','label',data_gen_args,save_to_dir = None)
 
-loaded_model_path = 'unet_glends.hdf5'
-#loaded_model = None
-model = unet(pretrained_weights=loaded_model_path,lr=learning_rate) 
+#loaded_model_path = save_model_path
+loaded_model = None
+if loaded_model:
+    model = unet(pretrained_weights=loaded_model_path,lr=learning_rate) 
+else:
+    model = unet(lr=learning_rate)
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=1650, 
+history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=10, 
                               validation_data=valid_gen, validation_steps=3#)
                               ,callbacks=[model_checkpoint])
 '''
@@ -44,7 +49,7 @@ print('    valid loss:', history.history['val_loss'])
 print('valid accuracy:', history.history['val_acc'])
 '''
 import yaml
-with open('history.yml','w') as f:
+with open(history_path,'w') as f:
     f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
                             acc = list(map(np.asscalar,history.history['acc'])),
                        val_loss = list(map(np.asscalar,history.history['val_loss'])),
