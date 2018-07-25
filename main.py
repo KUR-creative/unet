@@ -6,6 +6,7 @@ valid_dir = 'data/seg_data/valid/'
 test_dir = 'data/seg_data/test/'
 output_dir = 'data/seg_data/output'
 save_model_path = 'unet_glends.hdf5'
+history_path = 'history.yml'
 '''
 train_dir = 'data/membrane/train/'
 valid_dir = 'data/membrane/valid/'
@@ -34,7 +35,7 @@ loaded_model_path = 'unet_glends.hdf5'
 model = unet(pretrained_weights=loaded_model_path,lr=learning_rate) 
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=1650, 
+history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=10, 
                               validation_data=valid_gen, validation_steps=3#)
                               ,callbacks=[model_checkpoint])
 '''
@@ -44,11 +45,11 @@ print('    valid loss:', history.history['val_loss'])
 print('valid accuracy:', history.history['val_acc'])
 '''
 import yaml
-with open('history.yml','w') as f:
+with open(history_path,'w') as f:
     f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
-                            acc = list(map(np.asscalar,history.history['acc'])),
+                            acc = list(map(np.asscalar,history.history['mean_iou'])),
                        val_loss = list(map(np.asscalar,history.history['val_loss'])),
-                        val_acc = list(map(np.asscalar,history.history['val_acc'])))))
+                        val_acc = list(map(np.asscalar,history.history['val_mean_iou'])))))
 
 import matplotlib.pyplot as plt
 plt.clf()
@@ -56,6 +57,15 @@ plt.plot(history.history['loss'], 'b', label='train loss')
 plt.plot(history.history['val_loss'], 'r', label='valid loss')
 plt.xlabel('Epochs', fontsize=10)
 plt.ylabel('Loss', fontsize=10)
+plt.legend(fontsize=10)
+plt.draw()
+plt.show()
+
+plt.clf()
+plt.plot(history.history['mean_iou'], 'b', label='train accuracy')
+plt.plot(history.history['val_mean_iou'], 'r', label='valid accuracy')
+plt.xlabel('Epochs', fontsize=10)
+plt.ylabel('Accuracy', fontsize=10)
 plt.legend(fontsize=10)
 plt.draw()
 plt.show()
