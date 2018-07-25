@@ -55,10 +55,11 @@ data_gen_args = dict(rotation_range=0.2,
                     zoom_range=0.05,
                     horizontal_flip=True,
                     fill_mode='nearest')
-batch_size = 16
-learning_rate = 0.1e-7# 1.0e-7: best -> now, lower(slower). 
+batch_size = 4
+#learning_rate = 0.1e-10# 1.0e-9: best -> now, lower(slower). 
+#learning_rate = 200 # for jaccard loss
 decay = 0.1
-#learning_rate = 1.0 # for Adadelta
+learning_rate = 1.0 # for Adadelta
 #0 ~ 10000: 1.0e-7 later: 1.0e-8
 
 my_gen = dataGenerator(batch_size, train_dir,'image','label',data_gen_args,save_to_dir = None)
@@ -75,7 +76,7 @@ else:
 
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=3, epochs=10, 
+history = model.fit_generator(my_gen, steps_per_epoch=10, epochs=100, 
                               validation_data=valid_gen, validation_steps=3,#)
                               callbacks=[model_checkpoint])
 '''
