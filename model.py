@@ -9,8 +9,115 @@ from keras.optimizers import *
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
+'''
+#https://stackoverflow.com/questions/45947351/how-to-use-tensorflow-metrics-in-keras
+# IOU metric: https://www.pyimagesearch.com/wp-content/uploads/2016/09/iou_equation.png
+import functools
+import tensorflow as tf
+def as_keras_metric(method):
+    @functools.wraps(method)
+    def wrapper(self, args, **kwargs):
+        """ Wrapper for turning tensorflow metrics into keras metrics """
+        value, update_op = method(self, args, **kwargs)
+        K.get_session().run(tf.local_variables_initializer())
+        with tf.control_dependencies([update_op]):
+            value = tf.identity(value)
+        return value
+    return wrapper
 
-def unet(pretrained_weights = None,input_size = (256,256,1),lr=1e-4):
+@as_keras_metric
+def mean_iou(y_true, y_pred, num_classes=2):
+    return tf.metrics.mean_iou(y_true, y_pred, num_classes)
+'''
+
+# https://www.kaggle.com/aglotero/another-iou-metric  
+# iou = tp / (tp + fp + fn)
+from skimage.morphology import label
+def iou_metric(y_true_in, y_pred_in, print_table=False):
+    labels = label(y_true_in > 0.5)
+    y_pred = label(y_pred_in > 0.5)
+    
+    true_objects = len(np.unique(labels))
+    pred_objects = len(np.unique(y_pred))
+
+    intersection = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=(true_objects, pred_objects))[0]
+
+    # Compute areas (needed for finding the union between all objects)
+    area_true = np.histogram(labels, bins = true_objects)[0]
+    area_pred = np.histogram(y_pred, bins = pred_objects)[0]
+    area_true = np.expand_dims(area_true, -1)
+    area_pred = np.expand_dims(area_pred, 0)
+
+    # Compute union
+    union = area_true + area_pred - intersection
+
+    # Exclude background from the analysis
+    intersection = intersection[1:,1:]
+    union = union[1:,1:]
+    union[union == 0] = 1e-9
+
+    # Compute the intersection over union
+    iou = intersection / union
+
+    # Precision helper function
+    def precision_at(threshold, iou):
+        matches = iou > threshold
+        true_positives = np.sum(matches, axis=1) == 1   # Correct objects
+        false_positives = np.sum(matches, axis=0) == 0  # Missed objects
+        false_negatives = np.sum(matches, axis=1) == 0  # Extra objects
+        tp, fp, fn = np.sum(true_positives), np.sum(false_positives), np.sum(false_negatives)
+        return tp, fp, fn
+
+    # Loop over IoU thresholds
+    prec = []
+    if print_table:
+        print("Thresh\tTP\tFP\tFN\tPrec.")
+    for t in np.arange(0.5, 1.0, 0.05):
+        tp, fp, fn = precision_at(t, iou)
+        if (tp + fp + fn) > 0:
+            p = tp / (tp + fp + fn)
+        else:
+            p = 0
+        if print_table:
+            print("{:1.3f}\t{}\t{}\t{}\t{:1.3f}".format(t, tp, fp, fn, p))
+        prec.append(p)
+    
+    if print_table:
+        print("AP\t-\t-\t-\t{:1.3f}".format(np.mean(prec)))
+    return np.mean(prec)
+
+def iou_metric_batch(y_true_in, y_pred_in):
+    batch_size = y_true_in.shape[0]
+    metric = []
+    for batch in range(batch_size):
+        value = iou_metric(y_true_in[batch], y_pred_in[batch])
+        metric.append(value)
+    return np.array(np.mean(metric), dtype=np.float32)
+
+def mean_iou(label, pred):
+    metric_value = tf.py_func(iou_metric_batch, [label, pred], tf.float32)
+    return metric_value
+
+def create_weighted_binary_crossentropy(zero_weight, one_weight):
+    def weighted_binary_crossentropy(y_true, y_pred):
+
+        # Original binary crossentropy (see losses.py):
+        # K.mean(K.binary_crossentropy(y_true, y_pred), axis=-1)
+
+        # Calculate the binary crossentropy
+        b_ce = K.binary_crossentropy(y_true, y_pred)
+
+        # Apply the weights
+        weight_vector = y_true * one_weight + (1. - y_true) * zero_weight
+        weighted_b_ce = weight_vector * b_ce
+
+        # Return the mean error
+        return K.mean(weighted_b_ce)
+    return weighted_binary_crossentropy
+
+def unet(pretrained_weights = None,input_size = (256,256,1),
+         lr=1e-4, decay=0.0,
+         weight_0=0.5, weight_1=0.5):
     inputs = Input(input_size)
     conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
     conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
@@ -54,7 +161,13 @@ def unet(pretrained_weights = None,input_size = (256,256,1),lr=1e-4):
 
     model = Model(input = inputs, output = conv10)
 
-    model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
+    #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = lr,decay=decay), loss = 'binary_crossentropy', 
+                  metrics = [mean_iou])
+    #model.compile(optimizer = Adam(lr = lr), 
+                  #loss = create_weighted_binary_crossentropy(weight_0,weight_1),
+                  #metrics = ['accuracy'])
+    #model.compile(optimizer = Adadelta(lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     
     #model.summary()
 
