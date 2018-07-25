@@ -115,65 +115,79 @@ def create_weighted_binary_crossentropy(zero_weight, one_weight):
         return K.mean(weighted_b_ce)
     return weighted_binary_crossentropy
 
+def set_layer_BN_relu(input,layer_fn,*args,**kargs):
+    x = layer_fn(*args,**kargs)(input)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    return x
+
 def unet(pretrained_weights = None,input_size = (256,256,1),
          lr=1e-4, decay=0.0,
          weight_0=0.5, weight_1=0.5):
-    inputs = Input(input_size)
-    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
-    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
-    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
-    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv3)
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
-    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv4)
-    drop4 = Dropout(0.5)(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
+    inp = Input(input_size)
+    conv1 = set_layer_BN_relu(  inp, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
+    conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
+    conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (1,1), padding='same', kernel_initializer='he_normal')
+    pool = MaxPooling2D(pool_size=(2,2))(conv1)
+    conv2 = set_layer_BN_relu( pool, Conv2D, 128, (3,3), padding='same', kernel_initializer='he_normal')
+    conv2 = set_layer_BN_relu(conv2, Conv2D, 128, (3,3), padding='same', kernel_initializer='he_normal')
+    conv2 = set_layer_BN_relu(conv2, Conv2D, 128, (1,1), padding='same', kernel_initializer='he_normal')
+    pool = MaxPooling2D(pool_size=(2,2))(conv2)
+    conv3 = set_layer_BN_relu( pool, Conv2D, 256, (3,3), padding='same', kernel_initializer='he_normal')
+    conv3 = set_layer_BN_relu(conv3, Conv2D, 256, (3,3), padding='same', kernel_initializer='he_normal')
+    conv3 = set_layer_BN_relu(conv3, Conv2D, 256, (1,1), padding='same', kernel_initializer='he_normal')
+    pool = MaxPooling2D(pool_size=(2,2))(conv3)
+    conv4 = set_layer_BN_relu( pool, Conv2D, 512, (3,3), padding='same', kernel_initializer='he_normal')
+    conv4 = set_layer_BN_relu(conv4, Conv2D, 512, (3,3), padding='same', kernel_initializer='he_normal')
+    conv4 = set_layer_BN_relu(conv4, Conv2D, 512, (1,1), padding='same', kernel_initializer='he_normal')
+    pool = MaxPooling2D(pool_size=(2,2))(conv4)
+    conv5 = set_layer_BN_relu( pool, Conv2D,1024, (3,3), padding='same', kernel_initializer='he_normal')
+    conv5 = set_layer_BN_relu(conv5, Conv2D,1024, (3,3), padding='same', kernel_initializer='he_normal')
+    conv5 = set_layer_BN_relu(conv5, Conv2D,1024, (1,1), padding='same', kernel_initializer='he_normal')
 
-    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
-    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
-    drop5 = Dropout(0.5)(conv5)
+    conv6 = Conv2DTranspose(512, (2,2), padding='same', strides=(2,2), kernel_initializer='he_normal')(conv5)
+    merge6 = concatenate([conv4,conv6], axis=3)
+    conv6 = set_layer_BN_relu(merge6, Conv2D, 512, (3,3), padding='same', kernel_initializer='he_normal')
+    conv6 = set_layer_BN_relu( conv6, Conv2D, 512, (3,3), padding='same', kernel_initializer='he_normal')
+    conv6 = set_layer_BN_relu( conv6, Conv2D, 512, (1,1), padding='same', kernel_initializer='he_normal')
+    conv7 = Conv2DTranspose(512, (2,2), padding='same', strides=(2,2), kernel_initializer='he_normal')(conv6)
+    merge7 = concatenate([conv3,conv7], axis=3)
+    conv7 = set_layer_BN_relu(merge7, Conv2D, 256, (3,3), padding='same', kernel_initializer='he_normal')
+    conv7 = set_layer_BN_relu( conv7, Conv2D, 256, (3,3), padding='same', kernel_initializer='he_normal')
+    conv7 = set_layer_BN_relu( conv7, Conv2D, 256, (1,1), padding='same', kernel_initializer='he_normal')
+    conv8 = Conv2DTranspose(512, (2,2), padding='same', strides=(2,2), kernel_initializer='he_normal')(conv7)
+    merge8 = concatenate([conv2,conv8], axis=3)
+    conv8 = set_layer_BN_relu(merge8, Conv2D, 128, (3,3), padding='same', kernel_initializer='he_normal')
+    conv8 = set_layer_BN_relu( conv8, Conv2D, 128, (3,3), padding='same', kernel_initializer='he_normal')
+    conv8 = set_layer_BN_relu( conv8, Conv2D, 128, (1,1), padding='same', kernel_initializer='he_normal')
+    conv9 = Conv2DTranspose(512, (2,2), padding='same', strides=(2,2), kernel_initializer='he_normal')(conv8)
+    merge9 = concatenate([conv1,conv9], axis=3)
+    conv9 = set_layer_BN_relu(merge9, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
+    conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
+    conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (1,1), padding='same', kernel_initializer='he_normal')
 
-    up6 = Conv2D(512, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop5))
-    merge6 = merge([drop4,up6], mode = 'concat', concat_axis = 3)
-    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
-    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
+    out = Conv2D(1, (1,1), padding='same', activation = 'sigmoid')(conv9) # no init?
+    model = Model(input=inp, output=out)
 
-    up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
-    merge7 = merge([conv3,up7], mode = 'concat', concat_axis = 3)
-    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
-    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
-
-    up8 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
-    merge8 = merge([conv2,up8], mode = 'concat', concat_axis = 3)
-    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
-    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
-
-    up9 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
-    merge9 = merge([conv1,up9], mode = 'concat', concat_axis = 3)
-    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
-    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-    conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-    conv10 = Conv2D(1, 1, activation = 'sigmoid')(conv9)
-
-    model = Model(input = inputs, output = conv10)
-
+    #from keras_contrib.losses.jaccard import jaccard_distance
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
-    model.compile(optimizer = Adam(lr = lr,decay=decay), loss = 'binary_crossentropy', 
-                  metrics = [mean_iou])
+    #model.compile(optimizer = Adam(lr = lr,decay=decay), 
+                  #loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred,smooth=lr), 
+                  #metrics=[mean_iou])
+    #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 
                   #loss = create_weighted_binary_crossentropy(weight_0,weight_1),
                   #metrics = ['accuracy'])
-    #model.compile(optimizer = Adadelta(lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
+    model.compile(optimizer = Adadelta(lr), loss = 'binary_crossentropy', metrics=[mean_iou])
     
-    #model.summary()
 
     if(pretrained_weights):
     	model.load_weights(pretrained_weights)
 
     return model
 
-
+if __name__ == '__main__':
+    from keras.utils import plot_model
+    model = unet()
+    model.summary()
+    plot_model(model, to_file='C_model.png', show_shapes=True)
