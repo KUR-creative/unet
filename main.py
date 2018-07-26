@@ -6,21 +6,13 @@ import skimage.io as io
 from skimage.viewer import ImageViewer
 from utils import file_paths
 
-train_dir = 'data/seg_data/train/'
-valid_dir = 'data/seg_data/valid/'
-test_dir = 'data/seg_data/test/'
-#output_dir = 'data/seg_data/output'
-#save_model_path = 'unet_glends.hdf5'
-output_dir = 'data/seg_data/modified_output'
-save_model_path = 'modified_unet_glends.h5'
-history_path = 'modified_history.yml'
-'''
-train_dir = 'data/membrane/train/'
-valid_dir = 'data/membrane/valid/'
-test_dir = 'data/membrane/test/'
-output_dir = 'data/membrane/output'
-save_model_path = 'unet_membrane.hdf5'
-'''
+IMG_SIZE = 256
+train_dir = 'data/35crops/train'
+valid_dir = 'data/35crops/valid/'
+test_dir = 'data/35crops/test/'
+output_dir = 'data/35crops/output/'
+save_model_path = 'manga_seg.h5'
+history_path = 'manga_seg_history.yml'
 '''
 ratio_0 = 0
 ratio_1 = 0
@@ -55,12 +47,12 @@ data_gen_args = dict(rotation_range=0.2,
                     zoom_range=0.05,
                     horizontal_flip=True,
                     fill_mode='nearest')
-batch_size = 4
+batch_size = 4 # 528 = (132 step) * (4 batch_size)
 #learning_rate = 0.1e-10# 1.0e-9: best -> now, lower(slower). 
 #learning_rate = 200 # for jaccard loss
-decay = 0.1
-learning_rate = 1.0 # for Adadelta
+#decay = 0.1
 #0 ~ 10000: 1.0e-7 later: 1.0e-8
+learning_rate = 1.0 # for Adadelta
 
 my_gen = dataGenerator(batch_size, train_dir,'image','label',data_gen_args,save_to_dir = None)
 valid_gen = dataGenerator(batch_size, valid_dir,'image','label',data_gen_args,save_to_dir = None)
@@ -70,27 +62,32 @@ test_gen = dataGenerator(batch_size, test_dir,'image','label',data_gen_args,save
 loaded_model = None
 if loaded_model:
     model = unet(pretrained_weights=loaded_model,
-                 lr=learning_rate, decay=decay)#, weight_0=weight_0, weight_1=weight_1) 
+                 input_size=(IMG_SIZE,IMG_SIZE,1),
+                 lr=learning_rate)#, decay=decay#, weight_0=weight_0, weight_1=weight_1) 
 else:
-    model = unet(lr=learning_rate, decay=decay)#, weight_0=weight_0, weight_1=weight_1)
+    model = unet(input_size=(IMG_SIZE,IMG_SIZE,1), 
+                 lr=learning_rate)#, decay=decay)#, weight_0=weight_0, weight_1=weight_1)
 
 model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                     verbose=1, save_best_only=True)
-history = model.fit_generator(my_gen, steps_per_epoch=10, epochs=100, 
+history = model.fit_generator(my_gen, steps_per_epoch=132, epochs=10, 
                               validation_data=valid_gen, validation_steps=3,#)
                               callbacks=[model_checkpoint])
-'''
-print('    train loss:', history.history['loss'])
-print('train accuracy:', history.history['acc'])
-print('    valid loss:', history.history['val_loss'])
-print('valid accuracy:', history.history['val_acc'])
-'''
 import yaml
 with open(history_path,'w') as f:
     f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
                             acc = list(map(np.asscalar,history.history['mean_iou'])),
                        val_loss = list(map(np.asscalar,history.history['val_loss'])),
                         val_acc = list(map(np.asscalar,history.history['val_mean_iou'])))))
+
+num_imgs = len(os.listdir(output_dir)) // 2 # num_inp + num_mask
+output_gen = outputGenerator(output_dir, num_imgs, (IMG_SIZE,IMG_SIZE))#,(512,512))
+results = model.predict_generator(output_gen, num_imgs, verbose=1)
+saveResult(output_dir,results)
+
+test = model.evaluate_generator(test_gen, steps=3)
+print(model.metrics_names)
+print(test)
 
 import matplotlib.pyplot as plt
 plt.clf()
@@ -110,12 +107,3 @@ plt.ylabel('Accuracy', fontsize=10)
 plt.legend(fontsize=10)
 plt.draw()
 plt.show()
-
-output_gen = outputGenerator(output_dir,4)#,(512,512))
-results = model.predict_generator(output_gen,4,verbose=1)
-saveResult(output_dir,results)
-
-test = model.evaluate_generator(test_gen, steps=3)
-print(model.metrics_names)
-print(test)
-
