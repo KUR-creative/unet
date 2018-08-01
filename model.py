@@ -10,25 +10,8 @@ from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
 '''
-#https://stackoverflow.com/questions/45947351/how-to-use-tensorflow-metrics-in-keras
-# IOU metric: https://www.pyimagesearch.com/wp-content/uploads/2016/09/iou_equation.png
-import functools
-import tensorflow as tf
-def as_keras_metric(method):
-    @functools.wraps(method)
-    def wrapper(self, args, **kwargs):
-        """ Wrapper for turning tensorflow metrics into keras metrics """
-        value, update_op = method(self, args, **kwargs)
-        K.get_session().run(tf.local_variables_initializer())
-        with tf.control_dependencies([update_op]):
-            value = tf.identity(value)
-        return value
-    return wrapper
-
-@as_keras_metric
-def mean_iou(y_true, y_pred, num_classes=2):
-    return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 '''
+
 
 # https://www.kaggle.com/aglotero/another-iou-metric  
 # iou = tp / (tp + fp + fn)
@@ -40,7 +23,8 @@ def iou_metric(y_true_in, y_pred_in, print_table=False):
     true_objects = len(np.unique(labels))
     pred_objects = len(np.unique(y_pred))
 
-    intersection = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=(true_objects, pred_objects))[0]
+    intersection = np.histogram2d(labels.flatten(), y_pred.flatten(), 
+                                  bins=(true_objects, pred_objects))[0]
 
     # Compute areas (needed for finding the union between all objects)
     area_true = np.histogram(labels, bins = true_objects)[0]
@@ -68,6 +52,7 @@ def iou_metric(y_true_in, y_pred_in, print_table=False):
         tp, fp, fn = np.sum(true_positives), np.sum(false_positives), np.sum(false_negatives)
         return tp, fp, fn
 
+    '''
     # Loop over IoU thresholds
     prec = []
     if print_table:
@@ -85,6 +70,13 @@ def iou_metric(y_true_in, y_pred_in, print_table=False):
     if print_table:
         print("AP\t-\t-\t-\t{:1.3f}".format(np.mean(prec)))
     return np.mean(prec)
+    '''
+    tp, fp, fn = precision_at(0.5, iou)
+    if (tp + fp + fn) > 0:
+        ret = tp / (tp + fp + fn)
+    else:
+        ret = 0
+    return ret
 
 def iou_metric_batch(y_true_in, y_pred_in):
     batch_size = y_true_in.shape[0]
@@ -94,9 +86,36 @@ def iou_metric_batch(y_true_in, y_pred_in):
         metric.append(value)
     return np.array(np.mean(metric), dtype=np.float32)
 
-def mean_iou(label, pred):
+def mean_iou__(label, pred):
     metric_value = tf.py_func(iou_metric_batch, [label, pred], tf.float32)
     return metric_value
+
+def mean_iou_(y_true, y_pred, smooth=100):
+    y_true = K.cast(y_true > 0.5, dtype='float32')
+    y_pred = K.cast(y_pred > 0.5, dtype='float32')
+    intersection = K.sum(y_true * y_pred, axis=-1)
+    sum_ = K.sum(y_true + y_pred, axis=-1)
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return jac #* 100 #(1 - jac) * smooth
+
+#https://stackoverflow.com/questions/45947351/how-to-use-tensorflow-metrics-in-keras
+# IOU metric: https://www.pyimagesearch.com/wp-content/uploads/2016/09/iou_equation.png
+import functools
+import tensorflow as tf
+def as_keras_metric(method):
+    @functools.wraps(method)
+    def wrapper(self, args, **kwargs):
+        """ Wrapper for turning tensorflow metrics into keras metrics """
+        value, update_op = method(self, args, **kwargs)
+        K.get_session().run(tf.local_variables_initializer())
+        with tf.control_dependencies([update_op]):
+            value = tf.identity(value)
+        return value
+    return wrapper
+
+@as_keras_metric
+def mean_iou(y_true, y_pred, num_classes=2):
+    return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
 def create_weighted_binary_crossentropy(zero_weight, one_weight):
     def weighted_binary_crossentropy(y_true, y_pred):
@@ -169,16 +188,16 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
     out = Conv2D(1, (1,1), padding='same', activation = 'sigmoid')(conv9) # no init?
     model = Model(input=inp, output=out)
 
-    #from keras_contrib.losses.jaccard import jaccard_distance
+    from keras_contrib.losses.jaccard import jaccard_distance
+    model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
+                  loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred), #,smooth=lr
+                  metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
-    #model.compile(optimizer = Adam(lr = lr,decay=decay), 
-                  #loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred,smooth=lr), 
-                  #metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 
                   #loss = create_weighted_binary_crossentropy(weight_0,weight_1),
                   #metrics = ['accuracy'])
-    model.compile(optimizer = Adadelta(lr), loss = 'binary_crossentropy', metrics=[mean_iou])
+    #model.compile(optimizer = Adadelta(lr), loss = 'binary_crossentropy', metrics=[mean_iou])
     
 
     if(pretrained_weights):

@@ -87,7 +87,7 @@ def dataGenerator(batch_size, train_path, image_folder, mask_folder, aug_dict,
 def outputGenerator(test_path,num_image = 30,target_size = (256,256),
                   flag_multi_class = False,as_gray = True):
     for i in range(num_image):
-        img = io.imread(os.path.join(test_path,"%d.png"%i),as_gray = as_gray)
+        img = io.imread(os.path.join(test_path,"%d.bmp"%i),as_gray = as_gray)
         img = img / 255
         img = trans.resize(img,target_size)
         img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
@@ -113,10 +113,12 @@ def geneTrainNpy(image_path,mask_path,flag_multi_class = False,num_class = 2,ima
 
 
 def labelVisualize(num_class,color_dict,img):
+    io.imshow(img);io.show()
     img = img[:,:,0] if len(img.shape) == 3 else img
     img_out = np.zeros(img.shape + (3,))
     for i in range(num_class):
         img_out[img == i,:] = color_dict[i]
+    io.imshow(img_out);io.show()
     return img_out / 255
 
 
