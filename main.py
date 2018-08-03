@@ -3,9 +3,12 @@ from data import *
 import os
 import numpy as np
 import skimage.io as io
+import skimage.transform as trans
+import cv2
 from skimage.viewer import ImageViewer
 from utils import file_paths
 from itertools import cycle, islice
+from data_gen import augmenter
 
 import re
 def human_sorted(iterable):
@@ -16,23 +19,23 @@ def human_sorted(iterable):
 
 IMG_SIZE = 256
 batch_size = 4 
-num_epochs = 400
+num_epochs = 1000
 
-train_dir = 'data/seg_data/train'
-valid_dir = 'data/seg_data/valid/'
-test_dir = 'data/seg_data/test/'
-output_dir = 'data/seg_data/output/'
-steps_per_epoch = 8 # 32 = 8step * 4batch
-save_model_path = 'seg_data.h5' ## NOTE
-history_path = 'seg_data_history.yml' ## NOTE
+#train_dir = 'data/seg_data/train'
+#valid_dir = 'data/seg_data/valid/'
+#test_dir = 'data/seg_data/test/'
+#output_dir = 'data/seg_data/output/'
+#steps_per_epoch = 8 # 32 = 8step * 4batch
+#save_model_path = 'seg_data.h5' ## NOTE
+#history_path = 'seg_data_history.yml' ## NOTE
 
-#train_dir = 'data/Benigh_74sep/train'
-#valid_dir = 'data/Benigh_74sep/valid'
-#test_dir = 'data/Benigh_74sep/test'
-#output_dir = 'data/Benigh_74sep/output/'
-#save_model_path = 'benigh.h5' ## NOTE
-#history_path = 'benigh_history.yml' ## NOTE
-#steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
+train_dir = 'data/Benigh_74sep/train'
+valid_dir = 'data/Benigh_74sep/valid'
+test_dir = 'data/Benigh_74sep/test'
+output_dir = 'data/Benigh_74sep/output/'
+save_model_path = 'benigh.h5' ## NOTE
+history_path = 'benigh_history.yml' ## NOTE
+steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
 
 #train_dir = 'data/Malignant_91sep/train'
 #valid_dir = 'data/Malignant_91sep/valid'
@@ -57,11 +60,12 @@ for ip, mp in img_mask_pairs:
     #io.imshow(m); io.show()
 '''
 def preprocess(img):
-    img = img / 255
-    img = trans.resize(img, (256,256))
-    return img.reshape((256,256,1))
+    h,w = img.shape[:2]
+    img = (img / 255).astype(np.float32)
+    #img = trans.resize(img, (256,256))
+    return img.reshape((h,w,1))
 load_imgs = (lambda img_dir: 
-               list(map(lambda path: preprocess(io.imread(path, as_gray=True)),
+               list(map(lambda path: preprocess(cv2.imread(path, 0)),
                         human_sorted(file_paths(img_dir)))))
 train_imgs = load_imgs(train_dir+'/image') 
 train_masks = load_imgs(train_dir+'/label')
@@ -69,45 +73,18 @@ valid_imgs = load_imgs(valid_dir+'/image')
 valid_masks = load_imgs(valid_dir+'/label')
 test_imgs = load_imgs(test_dir+'/image')
 test_masks = load_imgs(test_dir+'/label')
+
+aug = augmenter(batch_size, 256, 1)
 def gen(imgs, masks, batch_size):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
     while True:
-        img_batch = np.array( list(islice(img_flow,batch_size)) )
-        mask_batch = np.array( list(islice(mask_flow,batch_size)) )
+        aug_det = aug.to_deterministic()
+        img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
+        mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
         yield img_batch, mask_batch
-
-#my_gen = dataGenerator(batch_size, train_dir,'image','label',data_gen_args,save_to_dir = None)
-#valid_gen = dataGenerator(batch_size, valid_dir,'image','label',data_gen_args,save_to_dir = None)
-#test_gen = dataGenerator(batch_size, test_dir,'image','label',data_gen_args,save_to_dir = None)
-
-
 '''
-ratio_0 = 0
-ratio_1 = 0
-num_img = 0
-for path in file_paths(os.path.join(train_dir,'label')):
-    #print(path)
-    img = io.imread(path, as_gray=True)
-    h,w = img.shape[:2]
-
-    num_all = h*w
-    num_1 = np.count_nonzero(img) 
-    num_0 = num_all - num_1
-
-    ratio_1 += num_1 / num_all
-    ratio_0 += num_0 / num_all
-    num_img += 1
-
-    #io.imshow(img); io.show()
-    #viewer = ImageViewer(img)
-    #viewer.show()
-ratio_0 /= num_img
-ratio_1 /= num_img
-weight_0 = ratio_1
-weight_1 = ratio_0
-print(ratio_0, ratio_1)
 '''
 
 data_gen_args = dict(rotation_range=0.2,
@@ -124,16 +101,6 @@ data_gen_args = dict(rotation_range=0.2,
 #0 ~ 10000: 1.0e-7 later: 1.0e-8
 learning_rate = 1.0 # for Adadelta
 
-'''
-for batch in gen(train_imgs, train_masks, batch_size):
-    print(batch[0].shape, batch[1].shape)
-    i = 0
-    for img, mask in zip(batch[0], batch[1]):
-        print(i)
-        print(img.shape)
-        io.imshow_collection([img[:,:,0],mask[:,:,0]]);io.show()
-        i += 1
-'''
 my_gen = gen(train_imgs, train_masks, batch_size)
 valid_gen = gen(valid_imgs, valid_masks, batch_size)
 test_gen = gen(test_imgs, test_masks, batch_size)
@@ -153,17 +120,40 @@ model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
 history = model.fit_generator(my_gen, steps_per_epoch=steps_per_epoch, epochs=num_epochs, ## NOTE
                               validation_data=valid_gen, validation_steps=3,#)
                               callbacks=[model_checkpoint])
+#--------------------------------------------------------------------
 
+#--------------------------- save results ---------------------------
 import yaml
 with open(history_path,'w') as f:
     f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
                             acc = list(map(np.asscalar,history.history['mean_iou'])),
                        val_loss = list(map(np.asscalar,history.history['val_loss'])),
                         val_acc = list(map(np.asscalar,history.history['val_mean_iou'])))))
-num_imgs = len(os.listdir(output_dir)) // 3 # num_inp + num_mask + prediction
-output_gen = outputGenerator(output_dir, num_imgs, (IMG_SIZE,IMG_SIZE))#,(512,512))
-results = model.predict_generator(output_gen, num_imgs, verbose=1)
-saveResult(output_dir,results)
+
+origin_dir = output_dir + '/origin'
+answer_dir = output_dir + '/answer'
+result_dir = output_dir + '/result'
+
+origins = load_imgs(origin_dir)
+answers = load_imgs(answer_dir)
+assert len(origins) == len(answers)
+
+num_imgs = len(origins)
+aug_det = augmenter(num_imgs,256,1).to_deterministic()
+
+origins = aug_det.augment_images(origins)
+answers = aug_det.augment_images(answers)
+predictions = model.predict_generator((img.reshape(1,256,256,1) for img in origins), 
+                                      num_imgs, verbose=1)
+
+for idx,(org,ans,pred) in enumerate(zip(origins,answers,predictions)):
+    cv2.imwrite(os.path.join(result_dir,"%d.png"%idx),
+                (org * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(result_dir,"%dans.png"%idx),
+                (ans * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(result_dir,"%dpred.png"%idx),
+                (pred * 255).astype(np.uint8))
+#--------------------------------------------------------------------
 
 test = model.evaluate_generator(test_gen, steps=3)
 print(model.metrics_names)
