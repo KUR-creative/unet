@@ -19,7 +19,7 @@ def human_sorted(iterable):
 
 IMG_SIZE = 256
 batch_size = 4 
-num_epochs = 1000
+num_epochs = 4000
 
 #train_dir = 'data/seg_data/train'
 #valid_dir = 'data/seg_data/valid/'
@@ -29,21 +29,21 @@ num_epochs = 1000
 #save_model_path = 'seg_data.h5' ## NOTE
 #history_path = 'seg_data_history.yml' ## NOTE
 
-train_dir = 'data/Benigh_74sep/train'
-valid_dir = 'data/Benigh_74sep/valid'
-test_dir = 'data/Benigh_74sep/test'
-output_dir = 'data/Benigh_74sep/output/'
-save_model_path = 'benigh.h5' ## NOTE
-history_path = 'benigh_history.yml' ## NOTE
-steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
+#train_dir = 'data/Benigh_74sep/train'
+#valid_dir = 'data/Benigh_74sep/valid'
+#test_dir = 'data/Benigh_74sep/test'
+#output_dir = 'data/Benigh_74sep/output/'
+#save_model_path = 'benigh.h5' ## NOTE
+#history_path = 'benigh_history.yml' ## NOTE
+#steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
 
-#train_dir = 'data/Malignant_91sep/train'
-#valid_dir = 'data/Malignant_91sep/valid'
-#test_dir = 'data/Malignant_91sep/test'
-#output_dir = 'data/Malignant_91/output/'
-#save_model_path = 'malignant.h5' ## NOTE
-#history_path = 'malignant_history.yml' ## NOTE
-#steps_per_epoch = 12 # num images: 48 = (12 step) * (4 batch_size)
+train_dir = 'data/Malignant_91sep/train'
+valid_dir = 'data/Malignant_91sep/valid'
+test_dir = 'data/Malignant_91sep/test'
+output_dir = 'data/Malignant_91sep/output/'
+save_model_path = 'malignant.h5' ## NOTE
+history_path = 'malignant_history.yml' ## NOTE
+steps_per_epoch = 12 # num images: 48 = (12 step) * (4 batch_size)
 
 '''
 dataset_dir = 'data/Benigh_74/'
@@ -105,7 +105,7 @@ my_gen = gen(train_imgs, train_masks, batch_size)
 valid_gen = gen(valid_imgs, valid_masks, batch_size)
 test_gen = gen(test_imgs, test_masks, batch_size)
 
-#loaded_model= save_model_path ## NOTE
+#loaded_model = save_model_path ## NOTE
 loaded_model = None
 if loaded_model:
     model = unet(pretrained_weights=loaded_model,
