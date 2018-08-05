@@ -115,7 +115,7 @@ test_inputs = load_imgs(os.path.join(test_dir,'image'))
 test_answers = load_imgs(os.path.join(test_dir,'label'))
 
 ## ready to save results
-eval_result_dir = os.path.join(dataset_dir,'evaluation')
+eval_result_dir = os.path.join(dataset_dir,'evaluation') # experiment result directory...
 eval_train_dir = os.path.join(eval_result_dir,'train')
 eval_valid_dir = os.path.join(eval_result_dir,'valid')
 eval_test_dir = os.path.join(eval_result_dir,'test')
@@ -128,6 +128,7 @@ segnet = model.unet(model_path, (None,None,1)) # img h,w must be x16(multiple of
 train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers)
 valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers)
 test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers)
+print('Evaluation completed!')
 
 with open(eval_summary,'w') as f:
     f.write(yaml.dump(dict( 
@@ -138,34 +139,9 @@ with open(eval_summary,'w') as f:
         test_iou_arr = test_iou_arr,
         test_mean_iou = np.asscalar(np.mean(test_iou_arr))
     )))#,
-                           #valid_iou_arr = valid_iou_arr,
-                           #test_iou_arr = test_iou_arr)))
+print('Evaluation summary is saved!')
 
 save_eval_results(train_result_tuples, eval_train_dir)
 save_eval_results(valid_result_tuples, eval_valid_dir)
 save_eval_results(test_result_tuples, eval_test_dir)
-'''
-for idx,(org,ans,pred) in enumerate(train_result_tuples):
-    cv2.imwrite(os.path.join(eval_train_dir,"%d.png"%idx),
-                (org * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(eval_train_dir,"%dans.png"%idx),
-                (ans * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(eval_train_dir,"%dpred.png"%idx),
-                (pred * 255).astype(np.uint8))
-
-for idx,(org,ans,pred) in enumerate():
-    cv2.imwrite(os.path.join(,"%d.png"%idx),
-                (org * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(eval_valid_dir,"%dans.png"%idx),
-                (ans * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(eval_valid_dir,"%dpred.png"%idx),
-                (pred * 255).astype(np.uint8))
-
-for idx,(org,ans,pred) in enumerate():
-    cv2.imwrite(os.path.join(,"%d.png"%idx),
-                (org * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(eval_test_dir,"%dans.png"%idx),
-                (ans * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(eval_test_dir,"%dpred.png"%idx),
-                (pred * 255).astype(np.uint8))
-'''
+print('Evaluation result images are saved!')
