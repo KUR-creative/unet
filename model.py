@@ -140,7 +140,7 @@ def set_layer_BN_relu(input,layer_fn,*args,**kargs):
     x = Activation('relu')(x)
     return x
 
-def unet(pretrained_weights = None,input_size = (256,256,1),
+def unet(pretrained_weights = None, input_size = (256,256,1), num_out_channels=1,
          lr=1e-4, decay=0.0,
          weight_0=0.5, weight_1=0.5):
     inp = Input(input_size)
@@ -185,7 +185,8 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
     conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
     conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (1,1), padding='same', kernel_initializer='he_normal')
 
-    out = Conv2D(1, (1,1), padding='same', activation = 'sigmoid')(conv9) # no init?
+    last_activation = 'sigmoid' if num_out_channels == 1 else 'softmax'
+    out = Conv2D(num_out_channels, (1,1), padding='same', activation = last_activation)(conv9) # no init?
     model = Model(input=inp, output=out)
 
     from keras_contrib.losses.jaccard import jaccard_distance
@@ -198,15 +199,15 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
                   #loss = create_weighted_binary_crossentropy(weight_0,weight_1),
                   #metrics = ['accuracy'])
     #model.compile(optimizer = Adadelta(lr), loss = 'binary_crossentropy', metrics=[mean_iou])
-    
 
     if(pretrained_weights):
     	model.load_weights(pretrained_weights)
 
     return model
 
+
 if __name__ == '__main__':
     from keras.utils import plot_model
-    model = unet()
+    model = unet(num_out_channels=3)
     model.summary()
     plot_model(model, to_file='C_model.png', show_shapes=True)
