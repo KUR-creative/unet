@@ -1,14 +1,15 @@
 import numpy as np
 from imgaug import augmenters as iaa
 
-def augmenter(batch_size = 4, crop_size=256, num_channels=3):
+def augmenter(batch_size = 4, crop_size=256):
     n_img = batch_size
     size = crop_size
-    n_ch = num_channels
+    #n_ch = num_channels
     def func_images(images, random_state, parents, hooks):
+        _,_,n_ch = images[0].shape
         ret_imgs = np.empty((n_img,size,size,n_ch))
         for idx,img in enumerate(images):
-            h,w,c = img.shape
+            h,w,_ = img.shape
             y = random_state.randint(0, h - size)
             x = random_state.randint(0, w - size)
             ret_imgs[idx] = img[y:y+size,x:x+size].reshape((size,size,n_ch))
