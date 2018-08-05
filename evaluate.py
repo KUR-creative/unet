@@ -5,6 +5,9 @@ from sklearn.metrics import confusion_matrix
 import re
 import model
 import utils
+import os
+from tqdm import tqdm
+import yaml
 
 def human_sorted(iterable):
     ''' Sorts the given iterable in the way that is expected. '''
@@ -38,49 +41,112 @@ def iou(a,p,thr=0.5):
 
 def modulo_padded(img, modulo=16):
     h,w = img.shape[:2]
-    h_padding = modulo - (h % modulo)
-    w_padding = modulo - (w % modulo)
-    print(':', h,h_padding, w,w_padding)
+    h_padding = (modulo - (h % modulo)) % modulo
+    w_padding = (modulo - (w % modulo)) % modulo
+    #print(':', h,h_padding, w,w_padding)
     if len(img.shape) == 3:
         return np.pad(img, [(0,h_padding),(0,w_padding),(0,0)], mode='reflect')
     elif len(img.shape) == 2:
         return np.pad(img, [(0,h_padding),(0,w_padding)], mode='reflect')
 
-output_dir = 'data/Benigh_74sep/tmp/'
-origin_dir = output_dir + '/origin'
-answer_dir = output_dir + '/answer'
-result_dir = output_dir + '/result'
+def evaluate(segnet, inputs, answers):
+    #print(len(inputs))
+    result_tuples = []
+    iou_arr = []
+    for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
+        org_h,org_w = inp.shape[:2]
 
-# load image,answer
-origins = load_imgs(origin_dir)
-answers = load_imgs(answer_dir)
-iou_arr = []
-for origin, answer in zip(origins,answers):
-    org_h,org_w = origin.shape[:2]
+        # pad and reshape image as unet inp 
+        img = modulo_padded(inp)
+        #print('i',img.shape)
+        #print('o',inp.shape)
+        img_shape = img.shape #NOTE grayscale!
+        img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
-    # pad and reshape image as unet input 
-    img = modulo_padded(origin)
-    #print('i',img.shape)
-    #print('o',origin.shape)
-    img_shape = img.shape #NOTE grayscale!
-    img_bat = img.reshape((1,) + img_shape) # size 1 batch
+        # get segmentation map
+        segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
 
-    # get segmentation map
-    model_path = 'benigh.h5'
-    segnet = model.unet(model_path, (None,None,1)) # img h,w must be x16(multiple of 16)
-    segmap = segnet.predict(img_bat, batch_size=1, verbose=1)
+        # crop and reshape output
+        segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
+        #print(inp.shape, answer.shape, segmap.shape)
+        result_tuples.append( (inp.reshape([org_h,org_w]), 
+                               answer.reshape([org_h,org_w]),  
+                               segmap.reshape([org_h,org_w])) )
+        '''
+        io.imshow_collection([inp.reshape((org_h,org_w)), 
+                              answer.reshape((org_h,org_w)),  
+                              segmap.reshape((org_h,org_w)),]); io.show() # output
+                              '''
+        # calculate iou
+        iou_score = iou(answer,segmap)
+        #print(iou_score, np.mean(iou_score))
+        iou_arr.append( np.asscalar(np.mean(iou_score)) )
+    return iou_arr, result_tuples
 
-    # crop and reshape output
-    segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
-    #print(origin.shape, answer.shape, segmap.shape)
-    '''
-    io.imshow_collection([origin.reshape((org_h,org_w)), 
-                          answer.reshape((org_h,org_w)),  
-                          segmap.reshape((org_h,org_w)),]); io.show() # output
-                          '''
+#def save_eval_results(result_tuples, result_dir):
 
-    # calculate iou
-    iou_score = iou(answer,segmap)
-    print(iou_score, np.mean(iou_score))
-    iou_arr.append(iou_score)
-print('total mean IoU:', np.mean(iou_arr))
+dataset_dir = 'data/Benigh_74sep/'
+train_dir = os.path.join(dataset_dir,'train')
+valid_dir = os.path.join(dataset_dir,'valid')
+test_dir = os.path.join(dataset_dir,'test')
+
+train_inputs = load_imgs(os.path.join(train_dir,'image'))
+train_answers = load_imgs(os.path.join(train_dir,'label'))
+valid_inputs = load_imgs(os.path.join(valid_dir,'image'))
+valid_answers = load_imgs(os.path.join(valid_dir,'label'))
+test_inputs = load_imgs(os.path.join(test_dir,'image'))
+test_answers = load_imgs(os.path.join(test_dir,'label'))
+
+eval_result_dir = os.path.join(dataset_dir,'evaluation')
+eval_train_dir = os.path.join(eval_result_dir,'train')
+eval_valid_dir = os.path.join(eval_result_dir,'valid')
+eval_test_dir = os.path.join(eval_result_dir,'test')
+os.makedirs(eval_train_dir, exist_ok=True)
+os.makedirs(eval_valid_dir, exist_ok=True)
+os.makedirs(eval_test_dir, exist_ok=True)
+
+eval_summary = './data/Benigh_74sep/benigh_eval_summary.yml'
+#eval_summary = 'data/seg_data/eval_summary.yml'
+model_path = './benigh.h5'
+#model_path = './seg_data.h5'
+segnet = model.unet(model_path, (None,None,1)) # img h,w must be x16(multiple of 16)
+
+train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers)
+valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers)
+test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers)
+
+with open(eval_summary,'w') as f:
+    f.write(yaml.dump(dict( 
+        train_iou_arr = train_iou_arr,
+        train_mean_iou = np.asscalar(np.mean(train_iou_arr)),
+        valid_iou_arr = valid_iou_arr,
+        valid_mean_iou = np.asscalar(np.mean(valid_iou_arr)),
+        test_iou_arr = test_iou_arr,
+        test_mean_iou = np.asscalar(np.mean(test_iou_arr))
+    )))#,
+                           #valid_iou_arr = valid_iou_arr,
+                           #test_iou_arr = test_iou_arr)))
+
+for idx,(org,ans,pred) in enumerate(train_result_tuples):
+    cv2.imwrite(os.path.join(eval_train_dir,"%d.png"%idx),
+                (org * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(eval_train_dir,"%dans.png"%idx),
+                (ans * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(eval_train_dir,"%dpred.png"%idx),
+                (pred * 255).astype(np.uint8))
+
+for idx,(org,ans,pred) in enumerate(valid_result_tuples):
+    cv2.imwrite(os.path.join(eval_valid_dir,"%d.png"%idx),
+                (org * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(eval_valid_dir,"%dans.png"%idx),
+                (ans * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(eval_valid_dir,"%dpred.png"%idx),
+                (pred * 255).astype(np.uint8))
+
+for idx,(org,ans,pred) in enumerate(test_result_tuples):
+    cv2.imwrite(os.path.join(eval_test_dir,"%d.png"%idx),
+                (org * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(eval_test_dir,"%dans.png"%idx),
+                (ans * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(eval_test_dir,"%dpred.png"%idx),
+                (pred * 255).astype(np.uint8))
