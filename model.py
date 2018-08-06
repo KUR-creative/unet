@@ -7,10 +7,18 @@ from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras import backend as keras
+#from keras.activations import softmax
 
 '''
 '''
+import tensorflow as tf
+def jaccard_distance(y_true, y_pred, smooth=100):
+    """ Calculates mean of Jaccard distance as a loss function """
+    intersection = tf.reduce_sum(y_true * y_pred, axis=(1,2,3)) # it assume y has only 0/1
+    sum_ = tf.reduce_sum(y_true + y_pred, axis=(1,2,3))
+    jacc = (intersection + smooth) / (sum_ - intersection + smooth)
+    jd =  (1 - jacc)
+    return tf.reduce_mean(jd)
 
 
 # https://www.kaggle.com/aglotero/another-iou-metric  
@@ -185,11 +193,13 @@ def unet(pretrained_weights = None, input_size = (256,256,1), num_out_channels=1
     conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
     conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (1,1), padding='same', kernel_initializer='he_normal')
 
-    last_activation = 'sigmoid' if num_out_channels == 1 else 'softmax'
+    #last_activation = lambda x: softmax(x,axis=0)
+    #last_activation = 'sigmoid' if num_out_channels == 1 else 'softmax'
+    last_activation = 'sigmoid'
     out = Conv2D(num_out_channels, (1,1), padding='same', activation = last_activation)(conv9) # no init?
     model = Model(input=inp, output=out)
 
-    from keras_contrib.losses.jaccard import jaccard_distance
+    #from keras_contrib.losses.jaccard import jaccard_distance
     model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
                   loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred), #,smooth=lr
                   metrics=[mean_iou])
