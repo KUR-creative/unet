@@ -17,6 +17,26 @@ def human_sorted(iterable):
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(iterable, key = alphanum_key)
 
+def preprocess(img):
+    c = 1 if len(img.shape) == 2 else 3
+    h,w = img.shape[:2]
+    img = (img / 255).astype(np.float32)
+    return img.reshape((h,w,c))
+def load_imgs(img_dir, mode_flag=cv2.IMREAD_GRAYSCALE):
+    return list(map(lambda path: preprocess(cv2.imread(path, mode_flag)),
+                    human_sorted(file_paths(img_dir))))
+
+def gen(imgs, masks, batch_size):
+    assert len(imgs) == len(masks)
+    img_flow = cycle(imgs)
+    mask_flow = cycle(masks)
+    while True:
+        aug_det = aug.to_deterministic()
+        img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
+        mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
+        yield img_batch, mask_batch
+
+#---------------------- experiment setting --------------------------
 IMG_SIZE = 256
 batch_size = 4 
 num_epochs = 10#200#4000
@@ -67,15 +87,9 @@ for ip, mp in img_mask_pairs:
     io.imshow_collection([im,m]); io.show()
     #io.imshow(m); io.show()
 '''
-def preprocess(img):
-    c = 1 if len(img.shape) == 2 else 3
-    h,w = img.shape[:2]
-    img = (img / 255).astype(np.float32)
-    return img.reshape((h,w,c))
-def load_imgs(img_dir, mode_flag=cv2.IMREAD_GRAYSCALE):
-    return list(map(lambda path: preprocess(cv2.imread(path, mode_flag)),
-                    human_sorted(file_paths(img_dir))))
+#--------------------------------------------------------------------
 
+#-------------------- ready to generate batch -----------------------
 train_imgs = load_imgs(train_dir+'/image') 
 train_masks = load_imgs(train_dir+'/label', cv2.IMREAD_COLOR)
 valid_imgs = load_imgs(valid_dir+'/image')
@@ -91,24 +105,6 @@ print('# test_imgs:  ', len(test_imgs))
 print('# test_masks: ', len(test_masks))
 
 aug = augmenter(batch_size, IMG_SIZE)
-def gen(imgs, masks, batch_size):
-    assert len(imgs) == len(masks)
-    img_flow = cycle(imgs)
-    mask_flow = cycle(masks)
-    while True:
-        aug_det = aug.to_deterministic()
-        img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
-        mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
-        yield img_batch, mask_batch
-
-data_gen_args = dict(rotation_range=0.2,
-                     width_shift_range=0.05,
-                     height_shift_range=0.05,
-                     shear_range=0.05,
-                     zoom_range=0.05,
-                     horizontal_flip=True,
-                     vertical_flip=True,
-                     fill_mode='reflect')
 #learning_rate = 0.1e-10# 1.0e-9: best -> now, lower(slower). 
 #learning_rate = 100 # for jaccard loss
 #decay = 0.1
@@ -133,10 +129,12 @@ for trs,vl,ts in zip(my_gen,valid_gen,test_gen):
         cv2.imshow( 'ts m', ts[1][i] )
         cv2.waitKey(0)
 '''
+#--------------------------------------------------------------------
     
+#---------------------------- train model ---------------------------
 #loaded_model = save_model_path ## NOTE
 loaded_model = None
-model = unet(pretrained_weights=loaded_model, num_out_channels=3, #NOTE: rgb output!
+model = unet(pretrained_weights=loaded_model, num_out_channels=4, #NOTE: rgbk output!
              input_size=(IMG_SIZE,IMG_SIZE,1),
              lr=learning_rate)#, decay=decay#, weight_0=weight_0, weight_1=weight_1) 
 
@@ -171,12 +169,13 @@ for idx,(org,ans,pred) in enumerate(zip(origins,answers,predictions)):
                 (ans * 255).astype(np.uint8))
     cv2.imwrite(os.path.join(result_dir,"%dpred.png"%idx),
                 (pred * 255).astype(np.uint8))
-#--------------------------------------------------------------------
 
 test_metrics = model.evaluate_generator(test_gen, steps=3)
 print(model.metrics_names)
 print(test_metrics)
+#--------------------------------------------------------------------
 
+#-------------------- visualize loss & accuracy ---------------------
 import yaml
 with open(history_path,'w') as f:
     f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
@@ -204,3 +203,4 @@ plt.ylabel('Accuracy', fontsize=10)
 plt.legend(fontsize=10)
 plt.draw()
 plt.show()
+#--------------------------------------------------------------------
