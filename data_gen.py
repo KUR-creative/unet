@@ -27,10 +27,10 @@ def augmenter(batch_size = 4, crop_size=256):
                func_keypoints=func_keypoints),
            ])
 
-def rgb2rgbk(rgb_img):
+def rgb2rgbk(rgb_batch):
     ''' 
     [arg]
-    rgb_img.shape = (n,h,w,3) 
+    rgb_batch.shape = (n,h,w,3) 
     4 class: 
       r: 1 0 0
       g: 0 1 0
@@ -38,40 +38,40 @@ def rgb2rgbk(rgb_img):
       k: 0 0 0
 
     [return]
-    rgbk_img.shape = (n,h,w,4)
+    rgbk_batch.shape = (n,h,w,4)
       r: 1 0 0 0
       g: 0 1 0 0
       b: 0 0 1 0
       k: 0 0 0 1
     '''
-    #assert len(rgb_img.shape) == 4
-    #assert len(rgb_img.shape == 4
-    nhw1 = rgb_img.shape[:-1] + (1,)
-    k = np.logical_not(np.sum(rgb_img, axis=-1)) \
-          .astype(rgb_img.dtype) \
+    #assert len(rgb_batch.shape) == 4
+    #assert len(rgb_batch.shape == 4
+    nhw1 = rgb_batch.shape[:-1] + (1,)
+    k = np.logical_not(np.sum(rgb_batch, axis=-1)) \
+          .astype(rgb_batch.dtype) \
           .reshape(nhw1)
-    rgbk_img = np.concatenate([rgb_img,k], axis=-1)
-    return rgbk_img
+    rgbk_batch = np.concatenate([rgb_batch,k], axis=-1)
+    return rgbk_batch
 
-def rgbk2rgb(rgbk_img):
+def rgbk2rgb(rgbk_batch):
     ''' 
     [arg]
-    rgbk_img.shape = (n,h,w,4)
+    rgbk_batch.shape = (n,h,w,4)
       r: 1 0 0 0
       g: 0 1 0 0
       b: 0 0 1 0
       k: 0 0 0 1
 
     [return]
-    rgb_img.shape = (n,h,w,3) 
+    rgb_batch.shape = (n,h,w,3) 
     4 class: 
       r: 1 0 0
       g: 0 1 0
       b: 0 0 1
       k: 0 0 0
     '''
-    rgb_img = rgbk_img[:,:,:,:3]
-    return rgb_img
+    rgb_batch = rgbk_batch[:,:,:,:3]
+    return rgb_batch
 
 import unittest
 class rgb2rgbk_test(unittest.TestCase):
