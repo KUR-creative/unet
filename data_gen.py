@@ -27,6 +27,158 @@ def augmenter(batch_size = 4, crop_size=256):
                func_keypoints=func_keypoints),
            ])
 
+def rgb2rgbk(rgb_img):
+    ''' 
+    [arg]
+    rgb_img.shape = (n,h,w,3) 
+    4 class: 
+      r: 1 0 0
+      g: 0 1 0
+      b: 0 0 1
+      k: 0 0 0
+
+    [return]
+    rgbk_img.shape = (n,h,w,4)
+      r: 1 0 0 0
+      g: 0 1 0 0
+      b: 0 0 1 0
+      k: 0 0 0 1
+    '''
+    #assert len(rgb_img.shape) == 4
+    #assert len(rgb_img.shape == 4
+    nhw1 = rgb_img.shape[:-1] + (1,)
+    k = np.logical_not(np.sum(rgb_img, axis=-1)) \
+          .astype(rgb_img.dtype) \
+          .reshape(nhw1)
+    rgbk_img = np.concatenate([rgb_img,k], axis=-1)
+    return rgbk_img
+
+def rgbk2rgb(rgbk_img):
+    ''' 
+    [arg]
+    rgbk_img.shape = (n,h,w,4)
+      r: 1 0 0 0
+      g: 0 1 0 0
+      b: 0 0 1 0
+      k: 0 0 0 1
+
+    [return]
+    rgb_img.shape = (n,h,w,3) 
+    4 class: 
+      r: 1 0 0
+      g: 0 1 0
+      b: 0 0 1
+      k: 0 0 0
+    '''
+    rgb_img = rgbk_img[:,:,:,:3]
+    return rgb_img
+
+import unittest
+class rgb2rgbk_test(unittest.TestCase):
+    def test(self):
+        rgb = np.array([[[[1, 0, 0],
+                          [0, 0, 1],
+                          [1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 0]],
+
+                         [[0, 0, 1],
+                          [0, 1, 0],
+                          [1, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]],
+
+                         [[0, 0, 1],
+                          [1, 0, 0],
+                          [0, 0, 1],
+                          [0, 1, 0],
+                          [0, 0, 1]],
+
+                         [[0, 1, 0],
+                          [0, 0, 0],
+                          [0, 0, 1],
+                          [1, 0, 0],
+                          [1, 0, 0]]],
+   
+                        [[[1, 0, 0],
+                          [0, 0, 1],
+                          [1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 0]],
+   
+                         [[0, 0, 1],
+                          [0, 1, 0],
+                          [1, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]],
+
+                         [[0, 0, 1],
+                          [1, 0, 0],
+                          [0, 0, 1],
+                          [0, 1, 0],
+                          [0, 0, 1]],
+   
+                         [[0, 1, 0],
+                          [0, 0, 0],
+                          [0, 0, 1],
+                          [1, 0, 0],
+                          [1, 0, 0]]]])
+        expected = \
+              np.array([[[[1, 0, 0, 0],
+                          [0, 0, 1, 0],
+                          [1, 0, 0, 0],
+                          [0, 1, 0, 0],
+                          [0, 0, 0, 1]],
+
+                         [[0, 0, 1, 0],
+                          [0, 1, 0, 0],
+                          [1, 0, 0, 0],
+                          [0, 0, 0, 1],
+                          [0, 0, 0, 1]],
+
+                         [[0, 0, 1, 0],
+                          [1, 0, 0, 0],
+                          [0, 0, 1, 0],
+                          [0, 1, 0, 0],
+                          [0, 0, 1, 0]],
+
+                         [[0, 1, 0, 0],
+                          [0, 0, 0, 1],
+                          [0, 0, 1, 0],
+                          [1, 0, 0, 0],
+                          [1, 0, 0, 0]]],
+
+
+                        [[[1, 0, 0, 0],
+                          [0, 0, 1, 0],
+                          [1, 0, 0, 0],
+                          [0, 1, 0, 0],
+                          [0, 0, 0, 1]],
+
+                         [[0, 0, 1, 0],
+                          [0, 1, 0, 0],
+                          [1, 0, 0, 0],
+                          [0, 0, 0, 1],
+                          [0, 0, 0, 1]],
+
+                         [[0, 0, 1, 0],
+                          [1, 0, 0, 0],
+                          [0, 0, 1, 0],
+                          [0, 1, 0, 0],
+                          [0, 0, 1, 0]],
+
+                         [[0, 1, 0, 0],
+                          [0, 0, 0, 1],
+                          [0, 0, 1, 0],
+                          [1, 0, 0, 0],
+                          [1, 0, 0, 0]]]])
+        rgbk = rgb2rgbk(rgb)
+        self.assertTrue(np.array_equal(rgbk,expected))
+        self.assertTrue(np.array_equal(rgb,rgbk2rgb(rgbk)))
+
+
+if __name__ == "__main__":
+    unittest.main()
 '''
 import re
 def human_sorted(iterable):
