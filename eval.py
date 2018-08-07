@@ -77,7 +77,7 @@ def save_eval_imgs(result_tuples, result_dir):
         cv2.imwrite(os.path.join(result_dir, '%dpred.png' % idx),
                     (pred * 255).astype(np.uint8))
 
-def make_eval_directory(eval_dirpath, eval_summary_name = 'eval_summary.yml',
+def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
                         train_dir='train',valid_dir='valid',test_dir='test'):
     ''' TODO: input = dictionary that express directory structure. return paths. '''
     assert_not_exists(eval_dirpath)
@@ -90,7 +90,8 @@ def make_eval_directory(eval_dirpath, eval_summary_name = 'eval_summary.yml',
     os.makedirs(eval_test_dirpath, exist_ok=True)
     return eval_summary_path, eval_train_dirpath, eval_valid_dirpath, eval_test_dirpath
 
-def eval_and_save_result(dataset_dir, model_path, result_dirname):
+def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
+                         eval_summary_name='summary.yml'):
     #---- load ----
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
@@ -122,9 +123,8 @@ def eval_and_save_result(dataset_dir, model_path, result_dirname):
     print('Evaluation completed!')
 
     #---- save ----
-    eval_dirpath = os.path.join(dataset_dir, result_dirname)
-    summary_path, train_path, valid_path, test_path = make_eval_directory(eval_dirpath)
-
+    summary_path, train_path, valid_path, test_path = make_eval_directory(eval_result_dirpath,
+                                                                          eval_summary_name)
     save_eval_summary(summary_path, train_iou_arr, valid_iou_arr, test_iou_arr)
     print('Evaluation summary is saved!')
 
@@ -134,11 +134,15 @@ def eval_and_save_result(dataset_dir, model_path, result_dirname):
     print('Evaluation result images are saved!')
 
 if __name__ == '__main__':
-    ## set source directories
-    #dataset_dir = 'data/Benigh_74sep/'
-    dataset_dir = 'data/Malignant_91sep/'
+    #dataset_dir = 'data'
+    #dataset_dir = 'data/Malignant_91sep/'
+    dataset_dir = 'data/Benigh_74sep/'
 
-    model_path = './malignant.h5'
+    #model_path = './malignant.h5'
+    model_path = './benigh.h5'
     #model_path = './seg_data.h5'
 
-    eval_and_save_result(dataset_dir, model_path, 'eval5')
+    eval_result_dirpath = 'data/Benigh_74sep/eval_results'
+    eval_and_save_result(dataset_dir, model_path, 
+                         os.path.join(eval_result_dirpath,'eval3'),
+                         'eval_summary.yml')
