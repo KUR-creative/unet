@@ -8,7 +8,8 @@ import cv2
 from skimage.viewer import ImageViewer
 from utils import file_paths
 from itertools import cycle, islice
-from data_gen import augmenter
+from data_gen import augmenter, rgb2rgbk, rgbk2rgb
+from keras.callbacks import TensorBoard
 
 import re
 def human_sorted(iterable):
@@ -22,11 +23,12 @@ def preprocess(img):
     h,w = img.shape[:2]
     img = (img / 255).astype(np.float32)
     return img.reshape((h,w,c))
+
 def load_imgs(img_dir, mode_flag=cv2.IMREAD_GRAYSCALE):
     return list(map(lambda path: preprocess(cv2.imread(path, mode_flag)),
                     human_sorted(file_paths(img_dir))))
 
-def gen(imgs, masks, batch_size):
+def gen(imgs, masks, batch_size, num_classes=1):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
@@ -34,20 +36,31 @@ def gen(imgs, masks, batch_size):
         aug_det = aug.to_deterministic()
         img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
         mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
+        if num_classes == 4:
+            mask_batch = rgb2rgbk(mask_batch)
         yield img_batch, mask_batch
 
 #---------------------- experiment setting --------------------------
 IMG_SIZE = 256
 batch_size = 4 
-num_epochs = 10#200#4000
+num_classes = 4
+num_epochs = 400#200#4000
 
-train_dir = 'data/gray3masks+3_sep/train'
-valid_dir = 'data/gray3masks+3_sep/valid'
-test_dir = 'data/gray3masks+3_sep/test'
-output_dir = 'data/gray3masks+3_sep/output/'
-save_model_path = 'new_manga.h5' ## NOTE
-history_path = 'new_manga_history.yml' ## NOTE
-steps_per_epoch = 60 # num images: 48 = (12 step) * (4 batch_size)
+train_dir = 'data/test_rgb//train'
+valid_dir = 'data/test_rgb/valid'
+test_dir = 'data/test_rgb/test'
+output_dir = 'data/test_rgb/output/'
+save_model_path = 'test_rgb.h5' ## NOTE
+history_path = 'test_rgb.yml' ## NOTE
+steps_per_epoch = 2 # num images: 48 = (12 step) * (4 batch_size)
+
+#train_dir = 'data/gray3masks+3_sep/train'
+#valid_dir = 'data/gray3masks+3_sep/valid'
+#test_dir = 'data/gray3masks+3_sep/test'
+#output_dir = 'data/gray3masks+3_sep/output/'
+#save_model_path = 'new_manga.h5' ## NOTE
+#history_path = 'new_manga_history.yml' ## NOTE
+#steps_per_epoch = 60 # num images: 48 = (12 step) * (4 batch_size)
 
 #train_dir = 'data/seg_data/train'
 #valid_dir = 'data/seg_data/valid/'
@@ -72,21 +85,6 @@ steps_per_epoch = 60 # num images: 48 = (12 step) * (4 batch_size)
 #save_model_path = 'malignant.h5' ## NOTE
 #history_path = 'malignant_history.yml' ## NOTE
 #steps_per_epoch = 12 # num images: 48 = (12 step) * (4 batch_size)
-
-'''
-dataset_dir = 'data/Benigh_74/'
-label_str = '_anno'
-all_paths = list(file_paths(dataset_dir))
-img_paths = human_sorted(filter(lambda p: label_str not in p, all_paths))
-mask_paths = human_sorted(filter(lambda p: label_str in p, all_paths))
-img_mask_pairs = list(zip(img_paths, mask_paths))
-for ip, mp in img_mask_pairs:
-    print(ip,mp)
-    im = io.imread(ip, as_gray=True)
-    m = io.imread(mp, as_gray=True)
-    io.imshow_collection([im,m]); io.show()
-    #io.imshow(m); io.show()
-'''
 #--------------------------------------------------------------------
 
 #-------------------- ready to generate batch -----------------------
@@ -111,9 +109,9 @@ aug = augmenter(batch_size, IMG_SIZE)
 #0 ~ 10000: 1.0e-7 later: 1.0e-8
 learning_rate = 1.0 # for Adadelta
 
-my_gen = gen(train_imgs, train_masks, batch_size)
-valid_gen = gen(valid_imgs, valid_masks, batch_size)
-test_gen = gen(test_imgs, test_masks, batch_size)
+my_gen = gen(train_imgs, train_masks, batch_size, num_classes=4)
+valid_gen = gen(valid_imgs, valid_masks, batch_size, num_classes=4)
+test_gen = gen(test_imgs, test_masks, batch_size, num_classes=4)
 
 ''' # for DEBUG
 for trs,vl,ts in zip(my_gen,valid_gen,test_gen):
@@ -129,25 +127,52 @@ for trs,vl,ts in zip(my_gen,valid_gen,test_gen):
         cv2.imshow( 'ts m', ts[1][i] )
         cv2.waitKey(0)
 '''
+ones = np.zeros((num_classes,))
+for mask in train_masks:
+    rgbk_mask = rgb2rgbk(mask)
+    # cv2 bgr order.
+    b,g,r,k = np.sum(rgbk_mask, axis=(0,1))
+    ones += (b,g,r,k)
+    #cv2.imshow('mask',rgbk_mask)
+    #print(ones, b,g,r,k); cv2.waitKey(0)
+'''
+for mask in valid_masks:
+    ones += np.sum(rgb2rgbk(mask), axis=(0,1))
+for mask in test_masks:
+    ones += np.sum(rgb2rgbk(mask), axis=(0,1))
+'''
+sum_ones = np.sum(ones)
+weights = sum_ones / ones
+weights /= np.sum(weights)
+#print('---->',ones)
+#print('---->',ones / num_ones)
+print('blue        green      red        black')
+print(weights)
+    
 #--------------------------------------------------------------------
     
 #---------------------------- train model ---------------------------
 #loaded_model = save_model_path ## NOTE
 loaded_model = None
-model = unet(pretrained_weights=loaded_model, num_out_channels=4, #NOTE: rgbk output!
-             input_size=(IMG_SIZE,IMG_SIZE,1),
+model = unet(pretrained_weights=loaded_model, num_out_channels=num_classes, #NOTE: rgbk output!
+             input_size=(IMG_SIZE,IMG_SIZE,1),weights=weights,
              lr=learning_rate)#, decay=decay#, weight_0=weight_0, weight_1=weight_1) 
-
-model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
-                                    verbose=1, save_best_only=True)
+model_checkpoint = ModelCheckpoint(save_model_path, 
+                                   #monitor='val_loss',
+                                   monitor='loss',
+                                   verbose=1, save_best_only=True)
 history = model.fit_generator(my_gen, steps_per_epoch=steps_per_epoch, epochs=num_epochs, ## NOTE
                               validation_data=valid_gen, validation_steps=3,#)
-                              callbacks=[model_checkpoint])
+                              callbacks=[model_checkpoint,
+                                         TensorBoard(batch_size=batch_size,
+                                                     write_graph=False)])
 #--------------------------------------------------------------------
 
 #--------------------------- save results ---------------------------
-origin_dir = output_dir + '/origin'
-answer_dir = output_dir + '/answer'
+#origin_dir = output_dir + '/origin'
+#answer_dir = output_dir + '/answer'
+origin_dir = output_dir + '/image' # train set
+answer_dir = output_dir + '/label' # train set
 result_dir = output_dir + '/result'
 
 origins = load_imgs(origin_dir)
@@ -161,6 +186,9 @@ origins = aug_det.augment_images(origins)
 answers = aug_det.augment_images(answers)
 predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                       num_imgs, verbose=1)
+print(predictions.shape)
+predictions = rgbk2rgb(predictions)
+print(predictions.shape)
 
 for idx,(org,ans,pred) in enumerate(zip(origins,answers,predictions)):
     cv2.imwrite(os.path.join(result_dir,"%d.png"%idx),

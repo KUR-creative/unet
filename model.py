@@ -8,18 +8,88 @@ from keras.layers import *
 from keras.optimizers import *
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 #from keras.activations import softmax
+from keras.losses import categorical_crossentropy
 
 '''
+A weighted version of categorical_crossentropy for keras (2.0.6). This lets you apply a weight to unbalanced classes.
+@url: https://gist.github.com/wassname/ce364fddfc8a025bfab4348cf5de852d
+@author: wassname
 '''
+from keras import backend as K
+def weighted_categorical_crossentropy(weights):
+    '''
+    A weighted version of keras.objectives.categorical_crossentropy
+    
+    Variables:
+        weights: numpy array of shape (C,) where C is the number of classes
+    
+    Usage:
+        weights = np.array([0.5,2,10]) # Class one at 0.5, class 2 twice the normal weights, class 3 10x.
+        loss = weighted_categorical_crossentropy(weights)
+        model.compile(loss=loss,optimizer='adam')
+    '''
+    weights = K.variable(weights)        
+    def loss(y_true, y_pred):
+        # scale predictions so that the class probas of each sample sum to 1
+        y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
+        # clip to prevent NaN's and Inf's
+        y_pred = K.clip(y_pred, K.epsilon(), 1 - K.epsilon())
+        # calc
+        loss = y_true * K.log(y_pred) * weights
+        loss = -K.sum(loss, -1)
+        return loss
+    return loss
+
 import tensorflow as tf
-def jaccard_distance(y_true, y_pred, smooth=100):
+def jaccard_distance(y_true, y_pred, weights=None, smooth=100):
     """ Calculates mean of Jaccard distance as a loss function """
-    intersection = tf.reduce_sum(y_true * y_pred, axis=(1,2,3)) # it assume y has only 0/1
-    sum_ = tf.reduce_sum(y_true + y_pred, axis=(1,2,3))
+    '''
+    '''
+    intersection = K.sum(y_true * y_pred, axis=-1) # it assume y has only 0/1
+    sum_ = K.sum(y_true + y_pred, axis=-1)
+    jacc_similarity = (intersection + smooth) / (sum_ - intersection + smooth)
+    #if weights is not None:
+        #jacc_similarity *= weights
+    jacc_distance =  (1 - jacc_similarity)
+    return jacc_distance
+    #return K.mean(jacc_distance)
+    '''
+    y_true = K.flatten(y_true)
+    y_pred = K.flatten(y_pred)
+    intersection = tf.reduce_sum(y_true * y_pred) # it assume y has only 0/1
+    sum_ = tf.reduce_sum(y_true + y_pred)
     jacc = (intersection + smooth) / (sum_ - intersection + smooth)
     jd =  (1 - jacc)
     return tf.reduce_mean(jd)
+    '''
+    '''
+    #y_true = K.flatten(y_true)
+    #y_pred = K.flatten(y_pred)
+    intersection = K.sum(K.minimum(y_true,y_pred)) # it assume y has only 0/1
+    union = K.sum(K.maximum(y_true,y_pred))
+    jacc = (intersection + smooth) / (union + smooth)
+    jd =  (1 - jacc)
+    #return jd
+    return tf.reduce_mean(jd)
+    '''
 
+def ruzicka_distance(y_true, y_pred, weights=None, smooth=100):
+    intersection = K.sum(K.minimum(y_true,y_pred), axis=(0,1,2)) # it assume y has only 0/1
+    union = K.sum(K.maximum(y_true,y_pred), axis=(0,1,2))
+    ruzicka_similarity = (intersection + smooth) / (union + smooth)
+    if weights is not None:
+        ruzicka_similarity *= weights
+    rd =  (1 - ruzicka_similarity)
+    return K.mean(rd)
+
+def dice_coef(y_true, y_pred):
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+
+def dice_coef_loss(y_true, y_pred):
+    return -dice_coef(y_true, y_pred)
 
 # https://www.kaggle.com/aglotero/another-iou-metric  
 # iou = tp / (tp + fp + fn)
@@ -94,7 +164,7 @@ def iou_metric_batch(y_true_in, y_pred_in):
         metric.append(value)
     return np.array(np.mean(metric), dtype=np.float32)
 
-def mean_iou__(label, pred):
+def mean_iou(label, pred):
     metric_value = tf.py_func(iou_metric_batch, [label, pred], tf.float32)
     return metric_value
 
@@ -122,7 +192,7 @@ def as_keras_metric(method):
     return wrapper
 
 @as_keras_metric
-def mean_iou(y_true, y_pred, num_classes=2):
+def mean_iou(y_true, y_pred, num_classes=4):
     return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
 def create_weighted_binary_crossentropy(zero_weight, one_weight):
@@ -149,8 +219,7 @@ def set_layer_BN_relu(input,layer_fn,*args,**kargs):
     return x
 
 def unet(pretrained_weights = None, input_size = (256,256,1), num_out_channels=1,
-         lr=1e-4, decay=0.0,
-         weight_0=0.5, weight_1=0.5):
+         lr=1e-4, decay=0.0, weights=None):
     inp = Input(input_size)
     conv1 = set_layer_BN_relu(  inp, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
     conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (3,3), padding='same', kernel_initializer='he_normal')
@@ -194,15 +263,20 @@ def unet(pretrained_weights = None, input_size = (256,256,1), num_out_channels=1
     conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (1,1), padding='same', kernel_initializer='he_normal')
 
     #last_activation = lambda x: softmax(x,axis=0)
-    #last_activation = 'sigmoid' if num_out_channels == 1 else 'softmax'
-    last_activation = 'sigmoid'
+    last_activation = 'sigmoid' if num_out_channels == 1 else 'softmax'
+    #last_activation = 'sigmoid'
     out = Conv2D(num_out_channels, (1,1), padding='same', activation = last_activation)(conv9) # no init?
     model = Model(input=inp, output=out)
 
     #from keras_contrib.losses.jaccard import jaccard_distance
-    model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
-                  loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred), #,smooth=lr
-                  metrics=[mean_iou])
+    if weights is not None:
+        model.compile(optimizer = Adadelta(lr),
+                      #optimizer = Adam(lr = 1.0e-7 ,decay=decay), 
+                      #loss=weighted_categorical_crossentropy(weights),
+                      #loss=categorical_crossentropy,
+                      loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred, weights=None), #,smooth=lr
+                      #loss=lambda y_true,y_pred: ruzicka_distance(y_true, y_pred, weights),
+                      metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 
