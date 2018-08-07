@@ -68,7 +68,7 @@ def save_eval_summary(eval_summary_path,
             test_mean_iou = np.asscalar(np.mean(test_iou_arr))
         )))#,
 
-def save_eval_imgs(result_tuples, result_dir):
+def save_img_tuples(result_tuples, result_dir):
     for idx,(org,ans,pred) in enumerate(result_tuples):
         cv2.imwrite(os.path.join(result_dir, '%d.png' % idx),
                     (org * 255).astype(np.uint8))
@@ -128,9 +128,9 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
     save_eval_summary(summary_path, train_iou_arr, valid_iou_arr, test_iou_arr)
     print('Evaluation summary is saved!')
 
-    save_eval_imgs(train_result_tuples, train_path)
-    save_eval_imgs(valid_result_tuples, valid_path)
-    save_eval_imgs(test_result_tuples, test_path)
+    save_img_tuples(train_result_tuples, train_path)
+    save_img_tuples(valid_result_tuples, valid_path)
+    save_img_tuples(test_result_tuples, test_path)
     print('Evaluation result images are saved!')
 
 if __name__ == '__main__':
@@ -144,5 +144,5 @@ if __name__ == '__main__':
 
     eval_result_dirpath = 'data/Benigh_74sep/eval_results'
     eval_and_save_result(dataset_dir, model_path, 
-                         os.path.join(eval_result_dirpath,'eval3'),
+                         os.path.join(eval_result_dirpath,'eval4'),
                          'eval_summary.yml')
