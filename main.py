@@ -1,16 +1,15 @@
 from model import *
 from data import *
 import yaml
-import os
+import os, sys
 import numpy as np
 import skimage.io as io
 import skimage.transform as trans
 import cv2
 from skimage.viewer import ImageViewer
-from utils import file_paths
 from itertools import cycle, islice
 from data_gen import augmenter
-from utils import bgr_float32, load_imgs, human_sorted
+from utils import file_paths, bgr_float32, load_imgs, human_sorted
 import evaluator
 
 def batch_gen(imgs, masks, batch_size, augmentater):
@@ -153,4 +152,10 @@ def main(experiment_yml_path):
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
-    main('data/Benigh_74sep/experiment1.yml')
+    with open('experiment_log','w') as log:
+        for experiment_path in human_sorted(file_paths(sys.argv[1])):
+            try:
+                main(experiment_path)
+            except AssertionError as error:
+                log.write(str(error))
+
