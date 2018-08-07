@@ -100,7 +100,8 @@ def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
     return eval_summary_path, eval_train_dirpath, eval_valid_dirpath, eval_test_dirpath
 
 def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
-                         eval_summary_name='summary.yml'):
+                         eval_summary_name='eval_summary.yml',
+                         files_2b_copied=None):
     #---- load ----
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
@@ -142,9 +143,15 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
     save_img_tuples(test_result_tuples, test_path)
     print('Evaluation result images are saved!')
 
-    _,model_path_name = os.path.split(model_path)
-    shutil.copyfile(model_path, os.path.join(eval_result_dirpath, model_path_name))
-    print('h5df model file is copyed into %s!' % eval_result_dirpath)
+    if files_2b_copied is None:
+        files_2b_copied = [model_path]
+    else:
+        files_2b_copied.append(model_path)
+
+    for file_path in files_2b_copied:
+        file_name = os.path.basename(file_path)
+        shutil.copyfile(file_path, os.path.join(eval_result_dirpath, file_name))
+        print("file '%s' is copyed into '%s'" % (file_name,eval_result_dirpath))
 
 if __name__ == '__main__':
     #dataset_dir = 'data'

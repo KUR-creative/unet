@@ -32,6 +32,7 @@ def main(experiment_yml_path):
         settings = yaml.load(f)
     experiment_name,_ = os.path.splitext(os.path.basename(experiment_yml_path))
     print('->',experiment_name)
+    print(settings)
     #----------------------- experiment settings ------------------------
     IMG_SIZE = settings['IMG_SIZE']
     BATCH_SIZE = settings['BATCH_SIZE']
@@ -127,7 +128,8 @@ def main(experiment_yml_path):
         test_acc = np.asscalar(test_metrics[1]) 
         )))
 
-    evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath)
+    evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
+                                   files_2b_copied=[history_path, experiment_yml_path])
     '''
     import matplotlib.pyplot as plt
     plt.clf()
@@ -151,4 +153,4 @@ def main(experiment_yml_path):
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
-    main('data/Benigh_74sep/experiment0.yml')
+    main('data/Benigh_74sep/experiment1.yml')
