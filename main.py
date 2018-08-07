@@ -38,11 +38,11 @@ def main():
     #save_model_path = 'seg_data.h5' ## NOTE
     #history_path = 'seg_data_history.yml' ## NOTE
 
-    dataset_dirpath = 'data/Benigh_74sep'
-    train_dir = os.path.join(dataset_dirpath,'train')
-    valid_dir = os.path.join(dataset_dirpath,'valid')
-    test_dir = os.path.join(dataset_dirpath,'test')
-    output_dir = os.path.join(dataset_dirpath,'output')
+    dataset_dir = 'data/Benigh_74sep'
+    train_dir = os.path.join(dataset_dir,'train')
+    valid_dir = os.path.join(dataset_dir,'valid')
+    test_dir = os.path.join(dataset_dir,'test')
+    output_dir = os.path.join(dataset_dir,'output')
 
     save_model_path = 'benigh_t.h5' ## NOTE
     history_path = 'benigh_history_t.yml' ## NOTE
@@ -121,16 +121,20 @@ def main():
     print('test set: loss =', test_metrics[0], '| IoU =', test_metrics[1])
     #--------------------------------------------------------------------
 
-    #-------------------- visualize loss & accuracy ---------------------
+    #------------------- evaluation and save results --------------------
     import yaml
     with open(history_path,'w') as f:
-        f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
-                                acc = list(map(np.asscalar,history.history['mean_iou'])),
-                           val_loss = list(map(np.asscalar,history.history['val_loss'])),
-                            val_acc = list(map(np.asscalar,history.history['val_mean_iou'])),
-                          test_loss = np.asscalar(test_metrics[0]),
-                           test_acc = np.asscalar(test_metrics[1]) )))
+        f.write(yaml.dump(dict(
+            loss = list(map(np.asscalar,history.history['loss'])),
+             acc = list(map(np.asscalar,history.history['mean_iou'])),
+        val_loss = list(map(np.asscalar,history.history['val_loss'])),
+         val_acc = list(map(np.asscalar,history.history['val_mean_iou'])),
+       test_loss = np.asscalar(test_metrics[0]),
+        test_acc = np.asscalar(test_metrics[1]) 
+        )))
 
+    eval_result_dirpath = 'data/Benigh_74sep/eval_results/eval0'
+    evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath)
     '''
     import matplotlib.pyplot as plt
     plt.clf()
