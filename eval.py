@@ -64,6 +64,23 @@ def save_eval_results(result_tuples, result_dir):
         cv2.imwrite(os.path.join(result_dir, '%dpred.png' % idx),
                     (pred * 255).astype(np.uint8))
 
+def save_eval_directory(dst_dir,
+                        train_result_tuples, valid_result_tuples, test_result_tuples,
+                        train_dir='train',valid_dir='valid',test_dir='test'):
+    eval_result_dirpath = os.path.join(dataset_dir, dst_dir) # experiment result directory...
+    assert not os.path.exists(eval_result_dirpath), eval_result_dirpath + ' is already exists.' 
+
+    eval_train_dirpath = os.path.join(eval_result_dirpath, train_dir)
+    eval_valid_dirpath = os.path.join(eval_result_dirpath, valid_dir)
+    eval_test_dirpath = os.path.join(eval_result_dirpath, test_dir)
+    os.makedirs(eval_train_dirpath, exist_ok=True)
+    os.makedirs(eval_valid_dirpath, exist_ok=True)
+    os.makedirs(eval_test_dirpath, exist_ok=True)
+
+    save_eval_results(train_result_tuples, eval_train_dirpath)
+    save_eval_results(valid_result_tuples, eval_valid_dirpath)
+    save_eval_results(test_result_tuples, eval_test_dirpath)
+    print('Evaluation result images are saved!')
 
 if __name__ == '__main__':
     ## set source directories
@@ -88,15 +105,6 @@ if __name__ == '__main__':
     test_inputs = list(  load_imgs(os.path.join(test_dir, 'image')) )
     test_answers = list( load_imgs(os.path.join(test_dir, 'label')) )
 
-    ## ready to save results
-    eval_result_dir = os.path.join(dataset_dir,'evaluation') # experiment result directory...
-    eval_train_dir = os.path.join(eval_result_dir,'train')
-    eval_valid_dir = os.path.join(eval_result_dir,'valid')
-    eval_test_dir = os.path.join(eval_result_dir,'test')
-    os.makedirs(eval_train_dir, exist_ok=True)
-    os.makedirs(eval_valid_dir, exist_ok=True)
-    os.makedirs(eval_test_dir, exist_ok=True)
-
     segnet = model.unet(model_path, (None,None,1)) # img h,w must be x16(multiple of 16)
 
     train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers)
@@ -115,7 +123,4 @@ if __name__ == '__main__':
         )))#,
     print('Evaluation summary is saved!')
 
-    save_eval_results(train_result_tuples, eval_train_dir)
-    save_eval_results(valid_result_tuples, eval_valid_dir)
-    save_eval_results(test_result_tuples, eval_test_dir)
-    print('Evaluation result images are saved!')
+    save_eval_directory('evaluation2', train_result_tuples, valid_result_tuples, test_result_tuples)
