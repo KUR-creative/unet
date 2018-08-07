@@ -27,25 +27,22 @@ def modulo_ceil(x, mod):
     return x + (mod - (x % mod)) % mod
 
 def main():
+    experiment_name = 'test'
     #settings = 
-    #---------------------- experiment setting --------------------------
+    #----------------------- experiment settings ------------------------
     IMG_SIZE = 256
     BATCH_SIZE = 4 
     NUM_EPOCHS = 2#4000
     LEARNING_RATE = 1.0 # for Adadelta
 
-    #train_dir = 'data/seg_data/train'
-    #valid_dir = 'data/seg_data/valid/'
-    #test_dir = 'data/seg_data/test/'
-    #output_dir = 'data/seg_data/output/'
-    #STEPS_PER_EPOCH = 8 # 32 = 8step * 4batch
-    #save_model_path = 'seg_data.h5' ## NOTE
-    #history_path = 'seg_data_history.yml' ## NOTE
-
     dataset_dir = 'data/Benigh_74sep'
     save_model_path = 'benigh_t.h5' ## NOTE
     history_path = 'benigh_history_t.yml' ## NOTE
 
+    eval_result_dirpath = os.path.join('data/Benigh_74sep/eval_results', experiment_name)
+    #--------------------------------------------------------------------
+
+    #--------------------------------------------------------------------
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
     test_dir = os.path.join(dataset_dir,'test')
@@ -69,6 +66,14 @@ def main():
     #save_model_path = 'malignant.h5' ## NOTE
     #history_path = 'malignant_history.yml' ## NOTE
     #steps_per_epoch = 12 # num images: 48 = (12 step) * (4 BATCH_SIZE)
+
+    #train_dir = 'data/seg_data/train'
+    #valid_dir = 'data/seg_data/valid/'
+    #test_dir = 'data/seg_data/test/'
+    #output_dir = 'data/seg_data/output/'
+    #STEPS_PER_EPOCH = 8 # 32 = 8step * 4batch
+    #save_model_path = 'seg_data.h5' ## NOTE
+    #history_path = 'seg_data_history.yml' ## NOTE
 
     '''
     dataset_dir = 'data/Benigh_74/'
@@ -150,7 +155,6 @@ def main():
         test_acc = np.asscalar(test_metrics[1]) 
         )))
 
-    eval_result_dirpath = 'data/Benigh_74sep/eval_results/eval0'
     evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath)
     '''
     import matplotlib.pyplot as plt
