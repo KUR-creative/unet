@@ -11,6 +11,8 @@ from itertools import cycle, islice
 from data_gen import augmenter
 from utils import file_paths, bgr_float32, load_imgs, human_sorted
 import evaluator
+from keras import backend as K
+import gc
 
 def batch_gen(imgs, masks, batch_size, augmentater):
     assert len(imgs) == len(masks)
@@ -111,6 +113,7 @@ def main(experiment_yml_path):
     evaluator.save_img_tuples(zip(origins,answers,predictions),result_dir)
 
     test_metrics = model.evaluate_generator(test_gen, steps=3)
+    K.clear_session()
     #print(model.metrics_names)
     #print(test_metrics)
     print('test set: loss =', test_metrics[0], '| IoU =', test_metrics[1])
@@ -157,5 +160,6 @@ if __name__ == '__main__':
             try:
                 main(experiment_path)
             except AssertionError as error:
+                print(str(error))
                 log.write(str(error))
 

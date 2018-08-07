@@ -8,6 +8,7 @@ import numpy as np
 #import skimage.io as io
 from tqdm import tqdm
 from sklearn.metrics import confusion_matrix 
+from keras import backend as K
 
 import model
 from utils import bgr_float32, load_imgs
@@ -130,6 +131,7 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
     train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers)
     valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers)
     test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers)
+    K.clear_session()
     print('Evaluation completed!')
 
     #---- save ----
