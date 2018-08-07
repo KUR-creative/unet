@@ -18,9 +18,19 @@ def human_sorted(iterable):
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(iterable, key = alphanum_key)
 
+def gen(imgs, masks, batch_size):
+    assert len(imgs) == len(masks)
+    img_flow = cycle(imgs)
+    mask_flow = cycle(masks)
+    while True:
+        aug_det = aug.to_deterministic()
+        img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
+        mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
+        yield img_batch, mask_batch
+
 IMG_SIZE = 256
 batch_size = 4 
-num_epochs = 4000
+num_epochs = 2#4000
 
 #train_dir = 'data/seg_data/train'
 #valid_dir = 'data/seg_data/valid/'
@@ -30,21 +40,23 @@ num_epochs = 4000
 #save_model_path = 'seg_data.h5' ## NOTE
 #history_path = 'seg_data_history.yml' ## NOTE
 
-#train_dir = 'data/Benigh_74sep/train'
-#valid_dir = 'data/Benigh_74sep/valid'
-#test_dir = 'data/Benigh_74sep/test'
-#output_dir = 'data/Benigh_74sep/output/'
-#save_model_path = 'benigh.h5' ## NOTE
-#history_path = 'benigh_history.yml' ## NOTE
-#steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
+dataset_dirpath = 'data/Benigh_74sep'
+train_dir = os.path.join(dataset_dirpath,'train')
+valid_dir = os.path.join(dataset_dirpath,'valid')
+test_dir = os.path.join(dataset_dirpath,'test')
+output_dir = os.path.join(dataset_dirpath,'output')
 
-train_dir = 'data/Malignant_91sep/train'
-valid_dir = 'data/Malignant_91sep/valid'
-test_dir = 'data/Malignant_91sep/test'
-output_dir = 'data/Malignant_91sep/output/'
-save_model_path = 'malignant.h5' ## NOTE
-history_path = 'malignant_history.yml' ## NOTE
-steps_per_epoch = 12 # num images: 48 = (12 step) * (4 batch_size)
+save_model_path = 'benigh_t.h5' ## NOTE
+history_path = 'benigh_history_t.yml' ## NOTE
+steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
+
+#train_dir = 'data/Malignant_91sep/train'
+#valid_dir = 'data/Malignant_91sep/valid'
+#test_dir = 'data/Malignant_91sep/test'
+#output_dir = 'data/Malignant_91sep/output/'
+#save_model_path = 'malignant.h5' ## NOTE
+#history_path = 'malignant_history.yml' ## NOTE
+#steps_per_epoch = 12 # num images: 48 = (12 step) * (4 batch_size)
 
 '''
 dataset_dir = 'data/Benigh_74/'
@@ -68,15 +80,6 @@ test_imgs = list(load_imgs(test_dir+'/image'))
 test_masks = list(load_imgs(test_dir+'/label'))
 
 aug = augmenter(batch_size, 256, 1)
-def gen(imgs, masks, batch_size):
-    assert len(imgs) == len(masks)
-    img_flow = cycle(imgs)
-    mask_flow = cycle(masks)
-    while True:
-        aug_det = aug.to_deterministic()
-        img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
-        mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
-        yield img_batch, mask_batch
 '''
 '''
 
