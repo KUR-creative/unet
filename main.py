@@ -25,6 +25,7 @@ def batch_gen(imgs, masks, batch_size, augmentater):
         yield img_batch, mask_batch
 
 def main():
+    #---------------------- experiment setting --------------------------
     IMG_SIZE = 256
     BATCH_SIZE = 4 
     NUM_EPOCHS = 2#4000
@@ -75,6 +76,8 @@ def main():
         io.imshow_collection([im,m]); io.show()
         #io.imshow(m); io.show()
     '''
+    #--------------------------------------------------------------------
+
     #-------------------- ready to generate batch -----------------------
     train_imgs = list(load_imgs(train_dir+'/image'))
     train_masks = list(load_imgs(train_dir+'/label'))
@@ -83,7 +86,7 @@ def main():
     test_imgs = list(load_imgs(test_dir+'/image'))
     test_masks = list(load_imgs(test_dir+'/label'))
 
-    aug = augmenter(BATCH_SIZE, 256, 1)
+    aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
 
     my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug)
     valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
@@ -112,11 +115,11 @@ def main():
     assert len(origins) == len(answers)
 
     num_imgs = len(origins)
-    aug_det = augmenter(num_imgs,256,1).to_deterministic()
+    aug_det = augmenter(num_imgs,IMG_SIZE,1).to_deterministic()
 
     origins = aug_det.augment_images(origins)
     answers = aug_det.augment_images(answers)
-    predictions = model.predict_generator((img.reshape(1,256,256,1) for img in origins), 
+    predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
 
     evaluator.save_img_tuples(zip(origins,answers,predictions),result_dir)
