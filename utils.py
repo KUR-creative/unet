@@ -1,4 +1,10 @@
-import shutil, os, pathlib, sys, time
+import shutil, os, pathlib, sys, time, re
+
+def human_sorted(iterable):
+    ''' Sorts the given iterable in the way that is expected. '''
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
+    return sorted(iterable, key = alphanum_key)
 
 class ElapsedTimer(object):
     def __init__(self,msg='Elapsed'):
@@ -71,6 +77,19 @@ def slice1channel(gray_rgb_img, channel=0):
     ''' gray_rgb_img is r=g=b image. '''
     grayscale_img = gray_rgb_img[:,:,channel]
     return grayscale_img.reshape(gray_rgb_img.shape[:2] + (1,))
+
+import cv2
+import numpy as np
+def bgr_float32(uint8img):
+    c = 1 if len(uint8img.shape) == 2 else 3
+    h,w = uint8img.shape[:2]
+    uint8img = (uint8img / 255).astype(np.float32)
+    return uint8img.reshape((h,w,c))
+
+def load_imgs(img_dir, mode_flag=cv2.IMREAD_GRAYSCALE):
+    return map(lambda path: bgr_float32(cv2.imread(path, mode_flag)),
+               human_sorted(file_paths(img_dir)))
+
 
 import unittest
 class Test_replace_part_of_path(unittest.TestCase):

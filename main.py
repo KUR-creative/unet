@@ -9,6 +9,7 @@ from skimage.viewer import ImageViewer
 from utils import file_paths
 from itertools import cycle, islice
 from data_gen import augmenter
+from utils import bgr_float32, load_imgs
 
 import re
 def human_sorted(iterable):
@@ -59,20 +60,12 @@ for ip, mp in img_mask_pairs:
     io.imshow_collection([im,m]); io.show()
     #io.imshow(m); io.show()
 '''
-def preprocess(img):
-    h,w = img.shape[:2]
-    img = (img / 255).astype(np.float32)
-    #img = trans.resize(img, (256,256))
-    return img.reshape((h,w,1))
-load_imgs = (lambda img_dir: 
-               list(map(lambda path: preprocess(cv2.imread(path, 0)),
-                        human_sorted(file_paths(img_dir)))))
-train_imgs = load_imgs(train_dir+'/image') 
-train_masks = load_imgs(train_dir+'/label')
-valid_imgs = load_imgs(valid_dir+'/image')
-valid_masks = load_imgs(valid_dir+'/label')
-test_imgs = load_imgs(test_dir+'/image')
-test_masks = load_imgs(test_dir+'/label')
+train_imgs = list(load_imgs(train_dir+'/image'))
+train_masks = list(load_imgs(train_dir+'/label'))
+valid_imgs = list(load_imgs(valid_dir+'/image'))
+valid_masks = list(load_imgs(valid_dir+'/label'))
+test_imgs = list(load_imgs(test_dir+'/image'))
+test_masks = list(load_imgs(test_dir+'/label'))
 
 aug = augmenter(batch_size, 256, 1)
 def gen(imgs, masks, batch_size):
@@ -134,8 +127,8 @@ origin_dir = output_dir + '/origin'
 answer_dir = output_dir + '/answer'
 result_dir = output_dir + '/result'
 
-origins = load_imgs(origin_dir)
-answers = load_imgs(answer_dir)
+origins = list(load_imgs(origin_dir))
+answers = list(load_imgs(answer_dir))
 assert len(origins) == len(answers)
 
 num_imgs = len(origins)

@@ -9,23 +9,7 @@ from tqdm import tqdm
 from sklearn.metrics import confusion_matrix 
 
 import model
-import utils
-
-
-def human_sorted(iterable):
-    ''' Sorts the given iterable in the way that is expected. '''
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
-    return sorted(iterable, key = alphanum_key)
-
-def preprocess(img):
-    h,w = img.shape[:2]
-    img = (img / 255).astype(np.float32)
-    return img.reshape((h,w,1))
-
-def load_imgs(img_dir): 
-    return list(map(lambda path: preprocess(cv2.imread(path, 0)),
-                    human_sorted(utils.file_paths(img_dir))))
+from utils import bgr_float32, load_imgs
 
 def iou(y_true,y_pred,thr=0.5):
     y_true = (y_true.flatten() >= thr).astype(np.uint8)
@@ -97,12 +81,12 @@ if __name__ == '__main__':
     #model_path = './seg_data.h5'
 
     ## load images
-    train_inputs = load_imgs(os.path.join(train_dir,'image'))
-    train_answers = load_imgs(os.path.join(train_dir,'label'))
-    valid_inputs = load_imgs(os.path.join(valid_dir,'image'))
-    valid_answers = load_imgs(os.path.join(valid_dir,'label'))
-    test_inputs = load_imgs(os.path.join(test_dir,'image'))
-    test_answers = load_imgs(os.path.join(test_dir,'label'))
+    train_inputs = list( load_imgs(os.path.join(train_dir,'image')) )
+    train_answers = list(load_imgs(os.path.join(train_dir,'label')) )
+    valid_inputs = list( load_imgs(os.path.join(valid_dir,'image')) )
+    valid_answers = list(load_imgs(os.path.join(valid_dir,'label')) )
+    test_inputs = list(  load_imgs(os.path.join(test_dir, 'image')) )
+    test_answers = list( load_imgs(os.path.join(test_dir, 'label')) )
 
     ## ready to save results
     eval_result_dir = os.path.join(dataset_dir,'evaluation') # experiment result directory...
