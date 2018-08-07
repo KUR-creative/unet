@@ -9,14 +9,10 @@ from skimage.viewer import ImageViewer
 from utils import file_paths
 from itertools import cycle, islice
 from data_gen import augmenter
-from utils import bgr_float32, load_imgs
+from utils import bgr_float32, load_imgs, human_sorted
+import evaluator
 
 import re
-def human_sorted(iterable):
-    ''' Sorts the given iterable in the way that is expected. '''
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
-    return sorted(iterable, key = alphanum_key)
 
 def gen(imgs, masks, batch_size):
     assert len(imgs) == len(masks)
@@ -119,15 +115,8 @@ history = model.fit_generator(my_gen, steps_per_epoch=steps_per_epoch, epochs=nu
 #--------------------------------------------------------------------
 
 #--------------------------- save results ---------------------------
-import yaml
-with open(history_path,'w') as f:
-    f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
-                            acc = list(map(np.asscalar,history.history['mean_iou'])),
-                       val_loss = list(map(np.asscalar,history.history['val_loss'])),
-                        val_acc = list(map(np.asscalar,history.history['val_mean_iou'])))))
-
-origin_dir = output_dir + '/origin'
-answer_dir = output_dir + '/answer'
+origin_dir = output_dir + '/image'
+answer_dir = output_dir + '/label'
 result_dir = output_dir + '/result'
 
 origins = list(load_imgs(origin_dir))
@@ -142,18 +131,22 @@ answers = aug_det.augment_images(answers)
 predictions = model.predict_generator((img.reshape(1,256,256,1) for img in origins), 
                                       num_imgs, verbose=1)
 
-for idx,(org,ans,pred) in enumerate(zip(origins,answers,predictions)):
-    cv2.imwrite(os.path.join(result_dir,"%d.png"%idx),
-                (org * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(result_dir,"%dans.png"%idx),
-                (ans * 255).astype(np.uint8))
-    cv2.imwrite(os.path.join(result_dir,"%dpred.png"%idx),
-                (pred * 255).astype(np.uint8))
+evaluator.save_img_tuples(zip(origins,answers,predictions),result_dir)
+
+test_metrics = model.evaluate_generator(test_gen, steps=3)
+print(model.metrics_names)
+print(test_metrics)
 #--------------------------------------------------------------------
 
-test = model.evaluate_generator(test_gen, steps=3)
-print(model.metrics_names)
-print(test)
+#-------------------- visualize loss & accuracy ---------------------
+import yaml
+with open(history_path,'w') as f:
+    f.write(yaml.dump(dict(loss = list(map(np.asscalar,history.history['loss'])),
+                            acc = list(map(np.asscalar,history.history['mean_iou'])),
+                       val_loss = list(map(np.asscalar,history.history['val_loss'])),
+                        val_acc = list(map(np.asscalar,history.history['val_mean_iou'])),
+                      test_loss = np.asscalar(test_metrics[0]),
+                       test_acc = np.asscalar(test_metrics[1]) )))
 
 import matplotlib.pyplot as plt
 plt.clf()
