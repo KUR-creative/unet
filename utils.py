@@ -90,6 +90,10 @@ def load_imgs(img_dir, mode_flag=cv2.IMREAD_GRAYSCALE):
     return map(lambda path: bgr_float32(cv2.imread(path, mode_flag)),
                human_sorted(file_paths(img_dir)))
 
+def assert_not_exists(path):
+    assert not os.path.exists(path), path + ' is already exists.' 
+def assert_exists(path):
+    assert os.path.exists(path), path + ' is not exists.' 
 
 import unittest
 class Test_replace_part_of_path(unittest.TestCase):
