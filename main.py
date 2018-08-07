@@ -45,18 +45,6 @@ def main(experiment_yml_path):
                                        experiment_name)
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
-    '''
-    IMG_SIZE = 256
-    BATCH_SIZE = 4 
-    NUM_EPOCHS = 2#4000
-    LEARNING_RATE = 1.0 # for Adadelta
-
-    dataset_dir = 'data/Benigh_74sep'
-    save_model_path = 'benigh_t.h5' ## NOTE
-    history_path = 'benigh_history_t.yml' ## NOTE
-
-    eval_result_dirpath = os.path.join('data/Benigh_74sep/eval_results', experiment_name)
-    '''
     #--------------------------------------------------------------------
 
     #--------------------------------------------------------------------
@@ -75,37 +63,6 @@ def main(experiment_yml_path):
     origin_dir = os.path.join(output_dir,'image')
     answer_dir = os.path.join(output_dir,'label')
     result_dir = os.path.join(output_dir,'result')
-
-    #train_dir = 'data/Malignant_91sep/train'
-    #valid_dir = 'data/Malignant_91sep/valid'
-    #test_dir = 'data/Malignant_91sep/test'
-    #output_dir = 'data/Malignant_91sep/output/'
-    #save_model_path = 'malignant.h5' ## NOTE
-    #history_path = 'malignant_history.yml' ## NOTE
-    #steps_per_epoch = 12 # num images: 48 = (12 step) * (4 BATCH_SIZE)
-
-    #train_dir = 'data/seg_data/train'
-    #valid_dir = 'data/seg_data/valid/'
-    #test_dir = 'data/seg_data/test/'
-    #output_dir = 'data/seg_data/output/'
-    #STEPS_PER_EPOCH = 8 # 32 = 8step * 4batch
-    #save_model_path = 'seg_data.h5' ## NOTE
-    #history_path = 'seg_data_history.yml' ## NOTE
-
-    '''
-    dataset_dir = 'data/Benigh_74/'
-    label_str = '_anno'
-    all_paths = list(file_paths(dataset_dir))
-    img_paths = human_sorted(filter(lambda p: label_str not in p, all_paths))
-    mask_paths = human_sorted(filter(lambda p: label_str in p, all_paths))
-    img_mask_pairs = list(zip(img_paths, mask_paths))
-    for ip, mp in img_mask_pairs:
-        print(ip,mp)
-        im = io.imread(ip, as_gray=True)
-        m = io.imread(mp, as_gray=True)
-        io.imshow_collection([im,m]); io.show()
-        #io.imshow(m); io.show()
-    '''
     #--------------------------------------------------------------------
 
     #-------------------- ready to generate batch -----------------------
