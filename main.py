@@ -85,13 +85,9 @@ def main():
 
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
-    if loaded_model:
-        model = unet(pretrained_weights=loaded_model,
-                     input_size=(IMG_SIZE,IMG_SIZE,1),
-                     lr=learning_rate)#, decay=decay#, weight_0=weight_0, weight_1=weight_1) 
-    else:
-        model = unet(input_size=(IMG_SIZE,IMG_SIZE,1), 
-                     lr=learning_rate)#, decay=decay)#, weight_0=weight_0, weight_1=weight_1)
+    model = unet(pretrained_weights=loaded_model,
+                 input_size=(IMG_SIZE,IMG_SIZE,1),
+                 lr=learning_rate)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
@@ -120,8 +116,9 @@ def main():
     evaluator.save_img_tuples(zip(origins,answers,predictions),result_dir)
 
     test_metrics = model.evaluate_generator(test_gen, steps=3)
-    print(model.metrics_names)
-    print(test_metrics)
+    #print(model.metrics_names)
+    #print(test_metrics)
+    print('test set: loss =', test_metrics[0], '| IoU =', test_metrics[1])
     #--------------------------------------------------------------------
 
     #-------------------- visualize loss & accuracy ---------------------
