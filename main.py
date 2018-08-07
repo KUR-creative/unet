@@ -41,13 +41,17 @@ def main():
     dataset_dir = 'data/Benigh_74sep'
     save_model_path = 'benigh_t.h5' ## NOTE
     history_path = 'benigh_history_t.yml' ## NOTE
-    STEPS_PER_EPOCH = 10 # num images: 37 = (10 step) * (4 BATCH_SIZE)
+    TRAIN_STEPS_PER_EPOCH = 10 # num images: 37 = (10 step) * (4 BATCH_SIZE)
+    VALID_STEPS_PER_EPOCH = 5  # num images: 19 = (5 step) * (4 BATCH_SIZE)
 
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
     test_dir = os.path.join(dataset_dir,'test')
-    output_dir = os.path.join(dataset_dir,'output')
 
+    output_dir = os.path.join(dataset_dir,'output')
+    origin_dir = os.path.join(output_dir,'image')
+    answer_dir = os.path.join(output_dir,'label')
+    result_dir = os.path.join(output_dir,'result')
 
     #train_dir = 'data/Malignant_91sep/train'
     #valid_dir = 'data/Malignant_91sep/valid'
@@ -71,6 +75,7 @@ def main():
         io.imshow_collection([im,m]); io.show()
         #io.imshow(m); io.show()
     '''
+    #-------------------- ready to generate batch -----------------------
     train_imgs = list(load_imgs(train_dir+'/image'))
     train_masks = list(load_imgs(train_dir+'/label'))
     valid_imgs = list(load_imgs(valid_dir+'/image'))
@@ -83,7 +88,9 @@ def main():
     my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug)
     valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
+    #--------------------------------------------------------------------
 
+    #---------------------------- train model ---------------------------
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     model = unet(pretrained_weights=loaded_model,
@@ -92,16 +99,14 @@ def main():
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
-    history = model.fit_generator(my_gen, steps_per_epoch=STEPS_PER_EPOCH, epochs=NUM_EPOCHS, ## NOTE
-                                  validation_data=valid_gen, validation_steps=3,#)
+    history = model.fit_generator(my_gen, epochs=NUM_EPOCHS,
+                                  steps_per_epoch=TRAIN_STEPS_PER_EPOCH, 
+                                  validation_steps=VALID_STEPS_PER_EPOCH,
+                                  validation_data=valid_gen, 
                                   callbacks=[model_checkpoint])
     #--------------------------------------------------------------------
 
     #--------------------------- save results ---------------------------
-    origin_dir = output_dir + '/image'
-    answer_dir = output_dir + '/label'
-    result_dir = output_dir + '/result'
-
     origins = list(load_imgs(origin_dir))
     answers = list(load_imgs(answer_dir))
     assert len(origins) == len(answers)
