@@ -55,7 +55,19 @@ def evaluate(segnet, inputs, answers):
         iou_arr.append( np.asscalar(np.mean(iou_score)) )
     return iou_arr, result_tuples
 
-def save_eval_results(result_tuples, result_dir):
+def save_eval_summary(eval_summary_path,
+                      train_iou_arr, valid_iou_arr, test_iou_arr):
+    with open(eval_summary_path,'w') as f:
+        f.write(yaml.dump(dict( 
+            train_iou_arr = train_iou_arr,
+            train_mean_iou = np.asscalar(np.mean(train_iou_arr)),
+            valid_iou_arr = valid_iou_arr,
+            valid_mean_iou = np.asscalar(np.mean(valid_iou_arr)),
+            test_iou_arr = test_iou_arr,
+            test_mean_iou = np.asscalar(np.mean(test_iou_arr))
+        )))#,
+
+def save_eval_imgs(result_tuples, result_dir):
     for idx,(org,ans,pred) in enumerate(result_tuples):
         cv2.imwrite(os.path.join(result_dir, '%d.png' % idx),
                     (org * 255).astype(np.uint8))
@@ -65,7 +77,9 @@ def save_eval_results(result_tuples, result_dir):
                     (pred * 255).astype(np.uint8))
 
 def save_eval_directory(dst_dir,
+                        train_iou_arr, valid_iou_arr, test_iou_arr,
                         train_result_tuples, valid_result_tuples, test_result_tuples,
+                        eval_summary_name = 'eval_summary.yml', 
                         train_dir='train',valid_dir='valid',test_dir='test'):
     eval_result_dirpath = os.path.join(dataset_dir, dst_dir) # experiment result directory...
     assert not os.path.exists(eval_result_dirpath), eval_result_dirpath + ' is already exists.' 
@@ -77,9 +91,13 @@ def save_eval_directory(dst_dir,
     os.makedirs(eval_valid_dirpath, exist_ok=True)
     os.makedirs(eval_test_dirpath, exist_ok=True)
 
-    save_eval_results(train_result_tuples, eval_train_dirpath)
-    save_eval_results(valid_result_tuples, eval_valid_dirpath)
-    save_eval_results(test_result_tuples, eval_test_dirpath)
+    eval_summary_path = os.path.join(eval_result_dirpath, eval_summary_name)
+    save_eval_summary(eval_summary_path, train_iou_arr,valid_iou_arr,test_iou_arr)
+    print('Evaluation summary is saved!')
+
+    save_eval_imgs(train_result_tuples, eval_train_dirpath)
+    save_eval_imgs(valid_result_tuples, eval_valid_dirpath)
+    save_eval_imgs(test_result_tuples, eval_test_dirpath)
     print('Evaluation result images are saved!')
 
 if __name__ == '__main__':
@@ -112,15 +130,6 @@ if __name__ == '__main__':
     test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers)
     print('Evaluation completed!')
 
-    with open(eval_summary,'w') as f:
-        f.write(yaml.dump(dict( 
-            train_iou_arr = train_iou_arr,
-            train_mean_iou = np.asscalar(np.mean(train_iou_arr)),
-            valid_iou_arr = valid_iou_arr,
-            valid_mean_iou = np.asscalar(np.mean(valid_iou_arr)),
-            test_iou_arr = test_iou_arr,
-            test_mean_iou = np.asscalar(np.mean(test_iou_arr))
-        )))#,
-    print('Evaluation summary is saved!')
-
-    save_eval_directory('evaluation2', train_result_tuples, valid_result_tuples, test_result_tuples)
+    save_eval_directory('evaluation3', 
+                        train_iou_arr, valid_iou_arr, test_iou_arr,
+                        train_result_tuples, valid_result_tuples, test_result_tuples)
