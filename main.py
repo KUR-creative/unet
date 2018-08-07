@@ -1,5 +1,6 @@
 from model import *
 from data import *
+import yaml
 import os
 import numpy as np
 import skimage.io as io
@@ -26,10 +27,25 @@ def modulo_ceil(x, mod):
     ''' return multiple of 'mod' greater than x '''
     return x + (mod - (x % mod)) % mod
 
-def main():
-    experiment_name = 'test'
-    #settings = 
+def main(experiment_yml_path):
+    with open(experiment_yml_path,'r') as f:
+        settings = yaml.load(f)
+    experiment_name,_ = os.path.splitext(os.path.basename(experiment_yml_path))
+    print('->',experiment_name)
     #----------------------- experiment settings ------------------------
+    IMG_SIZE = settings['IMG_SIZE']
+    BATCH_SIZE = settings['BATCH_SIZE']
+    NUM_EPOCHS = settings['NUM_EPOCHS']
+
+    dataset_dir = settings['dataset_dir']
+    save_model_path = settings['save_model_path']## NOTE
+    history_path = settings['history_path']## NOTE
+
+    eval_result_dirpath = os.path.join(settings['eval_result_parent_dir'], 
+                                       experiment_name)
+    #loaded_model = save_model_path ## NOTE
+    loaded_model = None
+    '''
     IMG_SIZE = 256
     BATCH_SIZE = 4 
     NUM_EPOCHS = 2#4000
@@ -40,6 +56,7 @@ def main():
     history_path = 'benigh_history_t.yml' ## NOTE
 
     eval_result_dirpath = os.path.join('data/Benigh_74sep/eval_results', experiment_name)
+    '''
     #--------------------------------------------------------------------
 
     #--------------------------------------------------------------------
@@ -107,8 +124,7 @@ def main():
     #--------------------------------------------------------------------
 
     #---------------------------- train model ---------------------------
-    #loaded_model = save_model_path ## NOTE
-    loaded_model = None
+    LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
                  lr=LEARNING_RATE)
@@ -144,7 +160,6 @@ def main():
     #--------------------------------------------------------------------
 
     #------------------- evaluation and save results --------------------
-    import yaml
     with open(history_path,'w') as f:
         f.write(yaml.dump(dict(
             loss = list(map(np.asscalar,history.history['loss'])),
@@ -179,4 +194,4 @@ def main():
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
-    main()
+    main('data/Benigh_74sep/experiment0.yml')
