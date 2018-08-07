@@ -26,27 +26,28 @@ def batch_gen(imgs, masks, batch_size, augmentater):
 
 def main():
     IMG_SIZE = 256
-    batch_size = 4 
-    num_epochs = 2#4000
-    learning_rate = 1.0 # for Adadelta
+    BATCH_SIZE = 4 
+    NUM_EPOCHS = 2#4000
+    LEARNING_RATE = 1.0 # for Adadelta
 
     #train_dir = 'data/seg_data/train'
     #valid_dir = 'data/seg_data/valid/'
     #test_dir = 'data/seg_data/test/'
     #output_dir = 'data/seg_data/output/'
-    #steps_per_epoch = 8 # 32 = 8step * 4batch
+    #STEPS_PER_EPOCH = 8 # 32 = 8step * 4batch
     #save_model_path = 'seg_data.h5' ## NOTE
     #history_path = 'seg_data_history.yml' ## NOTE
 
     dataset_dir = 'data/Benigh_74sep'
+    save_model_path = 'benigh_t.h5' ## NOTE
+    history_path = 'benigh_history_t.yml' ## NOTE
+    STEPS_PER_EPOCH = 10 # num images: 37 = (10 step) * (4 BATCH_SIZE)
+
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
     test_dir = os.path.join(dataset_dir,'test')
     output_dir = os.path.join(dataset_dir,'output')
 
-    save_model_path = 'benigh_t.h5' ## NOTE
-    history_path = 'benigh_history_t.yml' ## NOTE
-    steps_per_epoch = 10 # num images: 37 = (10 step) * (4 batch_size)
 
     #train_dir = 'data/Malignant_91sep/train'
     #valid_dir = 'data/Malignant_91sep/valid'
@@ -54,7 +55,7 @@ def main():
     #output_dir = 'data/Malignant_91sep/output/'
     #save_model_path = 'malignant.h5' ## NOTE
     #history_path = 'malignant_history.yml' ## NOTE
-    #steps_per_epoch = 12 # num images: 48 = (12 step) * (4 batch_size)
+    #steps_per_epoch = 12 # num images: 48 = (12 step) * (4 BATCH_SIZE)
 
     '''
     dataset_dir = 'data/Benigh_74/'
@@ -77,21 +78,21 @@ def main():
     test_imgs = list(load_imgs(test_dir+'/image'))
     test_masks = list(load_imgs(test_dir+'/label'))
 
-    aug = augmenter(batch_size, 256, 1)
+    aug = augmenter(BATCH_SIZE, 256, 1)
 
-    my_gen = batch_gen(train_imgs, train_masks, batch_size, aug)
-    valid_gen = batch_gen(valid_imgs, valid_masks, batch_size, aug)
-    test_gen = batch_gen(test_imgs, test_masks, batch_size, aug)
+    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug)
+    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
+    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
 
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
-                 lr=learning_rate)
+                 lr=LEARNING_RATE)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
-    history = model.fit_generator(my_gen, steps_per_epoch=steps_per_epoch, epochs=num_epochs, ## NOTE
+    history = model.fit_generator(my_gen, steps_per_epoch=STEPS_PER_EPOCH, epochs=NUM_EPOCHS, ## NOTE
                                   validation_data=valid_gen, validation_steps=3,#)
                                   callbacks=[model_checkpoint])
     #--------------------------------------------------------------------
