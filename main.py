@@ -87,12 +87,12 @@ def main():
     #--------------------------------------------------------------------
 
     #-------------------- ready to generate batch -----------------------
-    train_imgs = list(load_imgs(train_dir+'/image'))
-    train_masks = list(load_imgs(train_dir+'/label'))
-    valid_imgs = list(load_imgs(valid_dir+'/image'))
-    valid_masks = list(load_imgs(valid_dir+'/label'))
-    test_imgs = list(load_imgs(test_dir+'/image'))
-    test_masks = list(load_imgs(test_dir+'/label'))
+    train_imgs = list(load_imgs(os.path.join(train_dir,'image')))
+    train_masks =list(load_imgs(os.path.join(train_dir,'label')))
+    valid_imgs = list(load_imgs(os.path.join(valid_dir,'image')))
+    valid_masks =list(load_imgs(os.path.join(valid_dir,'label')))
+    test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
+    test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
 
     aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
 
