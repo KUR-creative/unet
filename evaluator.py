@@ -59,14 +59,22 @@ def evaluate(segnet, inputs, answers):
 def save_eval_summary(eval_summary_path,
                       train_iou_arr, valid_iou_arr, test_iou_arr):
     with open(eval_summary_path,'w') as f:
+        train_mean_iou = np.asscalar(np.mean(train_iou_arr))
+        valid_mean_iou = np.asscalar(np.mean(valid_iou_arr))
+        test_mean_iou = np.asscalar(np.mean(test_iou_arr))
         f.write(yaml.dump(dict( 
             train_iou_arr = train_iou_arr,
-            train_mean_iou = np.asscalar(np.mean(train_iou_arr)),
+            train_mean_iou = train_mean_iou,
             valid_iou_arr = valid_iou_arr,
-            valid_mean_iou = np.asscalar(np.mean(valid_iou_arr)),
+            valid_mean_iou = valid_mean_iou,
             test_iou_arr = test_iou_arr,
-            test_mean_iou = np.asscalar(np.mean(test_iou_arr))
+            test_mean_iou = test_mean_iou
         )))#,
+        print('------------ Mean IoUs ------------')
+        print('train mean iou =',train_mean_iou)
+        print('valid mean iou =',valid_mean_iou)
+        print(' test mean iou =', test_mean_iou)
+        print('-----------------------------------')
 
 def save_img_tuples(result_tuples, result_dir):
     for idx,(org,ans,pred) in enumerate(result_tuples):
@@ -144,5 +152,5 @@ if __name__ == '__main__':
 
     eval_result_dirpath = 'data/Benigh_74sep/eval_results'
     eval_and_save_result(dataset_dir, model_path, 
-                         os.path.join(eval_result_dirpath,'eval4'),
+                         os.path.join(eval_result_dirpath,'eval10'),
                          'eval_summary.yml')
