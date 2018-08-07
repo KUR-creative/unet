@@ -27,15 +27,15 @@ def load_imgs(img_dir):
     return list(map(lambda path: preprocess(cv2.imread(path, 0)),
                     human_sorted(utils.file_paths(img_dir))))
 
-def iou(a,p,thr=0.5):
-    a = (a.flatten() >= thr).astype(np.uint8)
-    p = (p.flatten() >= thr).astype(np.uint8)
-    cnfmat = confusion_matrix(a, p, labels=[0, 1])
-    I = np.diag(cnfmat)
-    P = cnfmat.sum(axis=0)
-    GT = cnfmat.sum(axis=1)
-    U = GT + P - I
-    return I / U.astype(np.float32)
+def iou(y_true,y_pred,thr=0.5):
+    y_true = (y_true.flatten() >= thr).astype(np.uint8)
+    y_pred = (y_pred.flatten() >= thr).astype(np.uint8)
+    cnfmat = confusion_matrix(y_true, y_pred, labels=[0, 1])
+    intersection = np.diag(cnfmat)
+    prediction = cnfmat.sum(axis=0) # 
+    ground_truth = cnfmat.sum(axis=1)
+    union = ground_truth + prediction - intersection
+    return intersection / union.astype(np.float32)
 
 def modulo_padded(img, modulo=16):
     h,w = img.shape[:2]
