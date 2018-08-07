@@ -1,5 +1,6 @@
 import re
 import os
+import shutil
 
 import cv2
 import yaml
@@ -141,6 +142,10 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
     save_img_tuples(test_result_tuples, test_path)
     print('Evaluation result images are saved!')
 
+    _,model_path_name = os.path.split(model_path)
+    shutil.copyfile(model_path, os.path.join(eval_result_dirpath, model_path_name))
+    print('h5df model file is copyed into %s!' % eval_result_dirpath)
+
 if __name__ == '__main__':
     #dataset_dir = 'data'
     #dataset_dir = 'data/Malignant_91sep/'
@@ -152,5 +157,5 @@ if __name__ == '__main__':
 
     eval_result_dirpath = 'data/Benigh_74sep/eval_results'
     eval_and_save_result(dataset_dir, model_path, 
-                         os.path.join(eval_result_dirpath,'eval10'),
+                         os.path.join(eval_result_dirpath,'eval11'),
                          'eval_summary.yml')
