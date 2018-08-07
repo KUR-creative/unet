@@ -12,8 +12,6 @@ from data_gen import augmenter
 from utils import bgr_float32, load_imgs, human_sorted
 import evaluator
 
-import re
-
 def batch_gen(imgs, masks, batch_size, augmentater):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
@@ -24,7 +22,12 @@ def batch_gen(imgs, masks, batch_size, augmentater):
         mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
         yield img_batch, mask_batch
 
+def modulo_ceil(x, mod):
+    ''' return multiple of 'mod' greater than x '''
+    return x + (mod - (x % mod)) % mod
+
 def main():
+    #settings = 
     #---------------------- experiment setting --------------------------
     IMG_SIZE = 256
     BATCH_SIZE = 4 
@@ -42,12 +45,17 @@ def main():
     dataset_dir = 'data/Benigh_74sep'
     save_model_path = 'benigh_t.h5' ## NOTE
     history_path = 'benigh_history_t.yml' ## NOTE
-    TRAIN_STEPS_PER_EPOCH = 10 # num images: 37 = (10 step) * (4 BATCH_SIZE)
-    VALID_STEPS_PER_EPOCH = 5  # num images: 19 = (5 step) * (4 BATCH_SIZE)
 
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
     test_dir = os.path.join(dataset_dir,'test')
+
+    num_train_imgs = len(os.listdir( os.path.join(train_dir,'image')) )
+    num_valid_imgs = len(os.listdir( os.path.join(valid_dir,'image')) )
+    TRAIN_STEPS_PER_EPOCH = modulo_ceil(num_train_imgs,BATCH_SIZE) // BATCH_SIZE  # num images: 37 = (10 step) * (4 BATCH_SIZE)
+    VALID_STEPS_PER_EPOCH = modulo_ceil(num_valid_imgs,BATCH_SIZE) // BATCH_SIZE  # num images: 19 = (5 step) * (4 BATCH_SIZE)
+    print('# train images =', num_train_imgs, '| train steps/epoch =', TRAIN_STEPS_PER_EPOCH)
+    print('# valid images =', num_valid_imgs, '| valid steps/epoch =', VALID_STEPS_PER_EPOCH)
 
     output_dir = os.path.join(dataset_dir,'output')
     origin_dir = os.path.join(output_dir,'image')
