@@ -134,6 +134,7 @@ def main():
                           test_loss = np.asscalar(test_metrics[0]),
                            test_acc = np.asscalar(test_metrics[1]) )))
 
+    '''
     import matplotlib.pyplot as plt
     plt.clf()
     plt.plot(history.history['loss'], 'b', label='train loss')
@@ -152,6 +153,7 @@ def main():
     plt.legend(fontsize=10)
     plt.draw()
     plt.show()
+    '''
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
