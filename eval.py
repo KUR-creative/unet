@@ -89,20 +89,11 @@ def make_eval_directory(eval_dirpath, eval_summary_name = 'eval_summary.yml',
     os.makedirs(eval_test_dirpath, exist_ok=True)
     return eval_summary_path, eval_train_dirpath, eval_valid_dirpath, eval_test_dirpath
 
-#def make_evaluation(dataset_dir, model_path
-
-if __name__ == '__main__':
-    ## set source directories
-    #dataset_dir = 'data/Benigh_74sep/'
-    dataset_dir = 'data/Malignant_91sep/'
+def eval_and_save_result(dataset_dir, model_path, result_dirname):
+    #---- load ----
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
     test_dir = os.path.join(dataset_dir,'test')
-
-    model_path = './malignant.h5'
-    #model_path = './seg_data.h5'
-
-    ## load images
     train_inputs = list( load_imgs(os.path.join(train_dir,'image')) )
     train_answers = list(load_imgs(os.path.join(train_dir,'label')) )
     valid_inputs = list( load_imgs(os.path.join(valid_dir,'image')) )
@@ -110,15 +101,15 @@ if __name__ == '__main__':
     test_inputs = list(  load_imgs(os.path.join(test_dir, 'image')) )
     test_answers = list( load_imgs(os.path.join(test_dir, 'label')) )
 
+    #---- eval ----
     segnet = model.unet(model_path, (None,None,1)) # img h,w must be x16(multiple of 16)
-
     train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers)
     valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers)
     test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers)
     print('Evaluation completed!')
 
-    ## save evaluation results
-    eval_dirpath = os.path.join(dataset_dir, 'evaluation4')
+    #---- save ----
+    eval_dirpath = os.path.join(dataset_dir, result_dirname)
     summary_path, train_path, valid_path, test_path = make_eval_directory(eval_dirpath)
 
     save_eval_summary(summary_path, train_iou_arr, valid_iou_arr, test_iou_arr)
@@ -128,3 +119,13 @@ if __name__ == '__main__':
     save_eval_imgs(valid_result_tuples, valid_path)
     save_eval_imgs(test_result_tuples, test_path)
     print('Evaluation result images are saved!')
+
+if __name__ == '__main__':
+    ## set source directories
+    #dataset_dir = 'data/Benigh_74sep/'
+    dataset_dir = 'data/Malignant_91sep/'
+
+    model_path = './malignant.h5'
+    #model_path = './seg_data.h5'
+
+    eval_and_save_result(dataset_dir, model_path, 'eval5')
