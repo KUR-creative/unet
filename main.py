@@ -33,7 +33,8 @@ def main(experiment_yml_path):
         settings = yaml.load(f)
     experiment_name,_ = os.path.splitext(os.path.basename(experiment_yml_path))
     print('->',experiment_name)
-    print(settings)
+    for k,v in settings.items():
+        print(k,'=',v)
     #----------------------- experiment settings ------------------------
     IMG_SIZE = settings['IMG_SIZE']
     BATCH_SIZE = settings['BATCH_SIZE']
@@ -45,6 +46,7 @@ def main(experiment_yml_path):
 
     eval_result_dirpath = os.path.join(settings['eval_result_parent_dir'], 
                                        experiment_name)
+    random_crop = settings.get('random_crop')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -132,26 +134,6 @@ def main(experiment_yml_path):
 
     evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
                                    files_2b_copied=[history_path, experiment_yml_path])
-    '''
-    import matplotlib.pyplot as plt
-    plt.clf()
-    plt.plot(history.history['loss'], 'b', label='train loss')
-    plt.plot(history.history['val_loss'], 'r', label='valid loss')
-    plt.xlabel('Epochs', fontsize=10)
-    plt.ylabel('Loss', fontsize=10)
-    plt.legend(fontsize=10)
-    plt.draw()
-    plt.show()
-
-    plt.clf()
-    plt.plot(history.history['mean_iou'], 'b', label='train accuracy')
-    plt.plot(history.history['val_mean_iou'], 'r', label='valid accuracy')
-    plt.xlabel('Epochs', fontsize=10)
-    plt.ylabel('Accuracy', fontsize=10)
-    plt.legend(fontsize=10)
-    plt.draw()
-    plt.show()
-    '''
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
