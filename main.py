@@ -19,9 +19,15 @@ def batch_gen(imgs, masks, batch_size, augmentater):
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
     while True:
-        aug_det = augmentater.to_deterministic()
-        img_batch = aug_det.augment_images( list(islice(img_flow,batch_size)) )
-        mask_batch = aug_det.augment_images( list(islice(mask_flow,batch_size)) )
+        img_batch = list(islice(img_flow,batch_size))
+        mask_batch = list(islice(mask_flow,batch_size))
+        if augmentater:
+            aug_det = augmentater.to_deterministic()
+            img_batch = aug_det.augment_images(img_batch)
+            mask_batch = aug_det.augment_images(mask_batch)
+        else: # no random crop - use square crop dataset
+            img_batch = np.array(img_batch, np.float32)
+            mask_batch = np.array(mask_batch, np.float32)
         yield img_batch, mask_batch
 
 def modulo_ceil(x, mod):
@@ -46,7 +52,8 @@ def main(experiment_yml_path):
 
     eval_result_dirpath = os.path.join(settings['eval_result_parent_dir'], 
                                        experiment_name)
-    random_crop = settings.get('random_crop')
+    # optional settings
+    sqr_crop_dataset = settings.get('sqr_crop_dataset') 
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -78,6 +85,8 @@ def main(experiment_yml_path):
     test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
 
     aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
+    if sqr_crop_dataset is True:
+        aug = None
 
     my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug)
     valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
@@ -105,10 +114,12 @@ def main(experiment_yml_path):
     assert len(origins) == len(answers)
 
     num_imgs = len(origins)
-    aug_det = augmenter(num_imgs,IMG_SIZE,1).to_deterministic()
 
-    origins = aug_det.augment_images(origins)
-    answers = aug_det.augment_images(answers)
+    if not sqr_crop_dataset:
+        aug_det = augmenter(num_imgs,IMG_SIZE,1).to_deterministic()
+        origins = aug_det.augment_images(origins)
+        answers = aug_det.augment_images(answers)
+
     predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
 

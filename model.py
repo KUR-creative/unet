@@ -86,7 +86,7 @@ def iou_metric_batch(y_true_in, y_pred_in):
         metric.append(value)
     return np.array(np.mean(metric), dtype=np.float32)
 
-def mean_iou(label, pred):
+def mean_iou__(label, pred):
     metric_value = tf.py_func(iou_metric_batch, [label, pred], tf.float32)
     return metric_value
 
@@ -114,7 +114,7 @@ def as_keras_metric(method):
     return wrapper
 
 @as_keras_metric
-def mean_iou_(y_true, y_pred, num_classes=2):
+def mean_iou(y_true, y_pred, num_classes=2):
     return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
 def create_weighted_binary_crossentropy(zero_weight, one_weight):
