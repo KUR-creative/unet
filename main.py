@@ -54,6 +54,7 @@ def main(experiment_yml_path):
                                        experiment_name)
     # optional settings
     sqr_crop_dataset = settings.get('sqr_crop_dataset') 
+    kernel_init = settings.get('kernel_init')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -94,9 +95,12 @@ def main(experiment_yml_path):
     #--------------------------------------------------------------------
 
     #---------------------------- train model ---------------------------
+    if kernel_init is None:
+        kernel_init = 'he_normal'
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
+                 kernel_init=kernel_init,
                  lr=LEARNING_RATE)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
