@@ -33,13 +33,13 @@ def modulo_padded(img, modulo=16):
     elif len(img.shape) == 2:
         return np.pad(img, [(0,h_padding),(0,w_padding)], mode='reflect')
 
-def evaluate(segnet, inputs, answers):
+def evaluate(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
     for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
         org_h,org_w = inp.shape[:2]
 
-        img = modulo_padded(inp)
+        img = modulo_padded(inp,modulo)
         img_shape = img.shape #NOTE grayscale!
         img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
@@ -102,7 +102,10 @@ def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
 
 def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
                          eval_summary_name='eval_summary.yml',
-                         files_2b_copied=None):
+                         files_2b_copied=None,
+                         modulo=16):
+    '''
+    '''
     #---- load ----
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
@@ -128,9 +131,9 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
 
     #---- eval ----
     segnet = model.unet(model_path, (None,None,1)) # img h,w must be x16(multiple of 16)
-    train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers)
-    valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers)
-    test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers)
+    train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers, modulo)
+    valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers, modulo)
+    test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers, modulo)
     K.clear_session()
     print('Evaluation completed!')
 

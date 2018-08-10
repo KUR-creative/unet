@@ -147,8 +147,10 @@ def main(experiment_yml_path):
         test_acc = np.asscalar(test_metrics[1]) 
         )))
 
+    modulo = 2**num_maxpool
     evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
-                                   files_2b_copied=[history_path, experiment_yml_path])
+                                   files_2b_copied=[history_path, experiment_yml_path],
+                                   modulo)
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
