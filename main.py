@@ -55,6 +55,7 @@ def main(experiment_yml_path):
     # optional settings
     sqr_crop_dataset = settings.get('sqr_crop_dataset') 
     kernel_init = settings.get('kernel_init')
+    num_maxpool = settings.get('num_maxpool')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -95,12 +96,14 @@ def main(experiment_yml_path):
     #--------------------------------------------------------------------
 
     #---------------------------- train model ---------------------------
-    if kernel_init is None:
-        kernel_init = 'he_normal'
+    if kernel_init is None: kernel_init = 'he_normal'
+    if num_maxpool is None: num_maxpool = 4
+
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
                  kernel_init=kernel_init,
+                 num_maxpool=num_maxpool,
                  lr=LEARNING_RATE)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
@@ -150,7 +153,7 @@ def main(experiment_yml_path):
     modulo = 2**num_maxpool
     evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
                                    files_2b_copied=[history_path, experiment_yml_path],
-                                   modulo)
+                                   num_maxpool=num_maxpool, modulo=modulo)
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':

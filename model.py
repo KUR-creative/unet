@@ -159,21 +159,29 @@ def up_block(from_horizon, upward, cnum, kernel_init, filter_vec=(3,3,1)):
 
 def unet(pretrained_weights = None,input_size = (256,256,1),
          kernel_init='he_normal', channel_num=64,
+         num_maxpool = 4,
          lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5):
+    '''
+    depth = 4
+    x -> 0-------8 -> y
+          1-----7
+           2---6
+            3-5
+             4
+    '''
     cnum = channel_num
+    depth = num_maxpool
 
-    inp = Input(input_size)
-    conv1, half = down_block( inp, 2**0 * cnum, kernel_init)
-    conv2, half = down_block(half, 2**1 * cnum, kernel_init)
-    conv3, half = down_block(half, 2**2 * cnum, kernel_init)
-    conv4, half = down_block(half, 2**3 * cnum, kernel_init)
-    conv5       = down_block(half, 2**4 * cnum, kernel_init, maxpool2x=False)
+    x = inp = Input(input_size)
 
-    conv6 = up_block(conv4, conv5, 2**3 * cnum, kernel_init)
-    conv7 = up_block(conv3, conv6, 2**2 * cnum, kernel_init)
-    conv8 = up_block(conv2, conv7, 2**1 * cnum, kernel_init)
-    conv9 = up_block(conv1, conv8, 2**0 * cnum, kernel_init)
-    out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(conv9)
+    down_convs = [None] * depth
+    for i in range(depth): 
+        down_convs[i], x = down_block(x, 2**i * cnum, kernel_init)
+    x = down_block(x, 2**depth * cnum, kernel_init, maxpool2x=False)    
+    for i in reversed(range(depth)): 
+        x = up_block(down_convs[i], x, 2**i * cnum, kernel_init)
+
+    out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(x)
 
     model = Model(input=inp, output=out)
     from keras_contrib.losses.jaccard import jaccard_distance
@@ -198,6 +206,20 @@ if __name__ == '__main__':
     model = unet()
     model.summary()
     plot_model(model, to_file='C_model.png', show_shapes=True)
+
+'''
+conv0, half = down_block( inp, 2**0 * cnum, kernel_init)
+conv1, half = down_block(half, 2**1 * cnum, kernel_init)
+conv2, half = down_block(half, 2**2 * cnum, kernel_init)
+conv3, half = down_block(half, 2**3 * cnum, kernel_init)
+
+conv4       = down_block(half, 2**4 * cnum, kernel_init, maxpool2x=False)
+
+conv5 = up_block(conv3, conv4, 2**3 * cnum, kernel_init)
+conv6 = up_block(conv2, conv5, 2**2 * cnum, kernel_init)
+conv7 = up_block(conv1, conv6, 2**1 * cnum, kernel_init)
+conv8 = up_block(conv0, conv7, 2**0 * cnum, kernel_init)
+'''
 
 '''
 conv1 = set_layer_BN_relu(  inp, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
