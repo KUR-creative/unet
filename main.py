@@ -9,7 +9,7 @@ import cv2
 from skimage.viewer import ImageViewer
 from itertools import cycle, islice
 from data_gen import augmenter
-from utils import file_paths, bgr_float32, load_imgs, human_sorted
+from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
 from keras import backend as K
 import gc
@@ -97,7 +97,7 @@ def main(experiment_yml_path):
 
     #---------------------------- train model ---------------------------
     if kernel_init is None: kernel_init = 'he_normal'
-    if num_maxpool is None: num_maxpool = 4
+    if num_maxpool is None: num_maxpool = 4 
 
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
@@ -160,7 +160,9 @@ if __name__ == '__main__':
     with open('experiment_log','w') as log:
         for experiment_path in human_sorted(file_paths(sys.argv[1])):
             try:
+                timer = ElapsedTimer(experiment_path)
                 main(experiment_path)
+                log.write(timer.elapsed_time())
             except AssertionError as error:
                 print(str(error))
                 log.write(str(error))
