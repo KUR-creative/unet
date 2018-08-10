@@ -111,11 +111,13 @@ def main(experiment_yml_path):
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
+    train_timer = ElapsedTimer(experiment_yml_path + ' training')
     history = model.fit_generator(my_gen, epochs=NUM_EPOCHS,
                                   steps_per_epoch=TRAIN_STEPS_PER_EPOCH, 
                                   validation_steps=VALID_STEPS_PER_EPOCH,
                                   validation_data=valid_gen, 
                                   callbacks=[model_checkpoint])
+    train_time_str = train_timer.elapsed_time()
     #--------------------------------------------------------------------
 
     #--------------------------- save results ---------------------------
@@ -150,7 +152,8 @@ def main(experiment_yml_path):
         val_loss = list(map(np.asscalar,history.history['val_loss'])),
          val_acc = list(map(np.asscalar,history.history['val_mean_iou'])),
        test_loss = np.asscalar(test_metrics[0]),
-        test_acc = np.asscalar(test_metrics[1]) 
+        test_acc = np.asscalar(test_metrics[1]),
+        train_time = train_time_str,
         )))
 
     modulo = 2**num_maxpool
