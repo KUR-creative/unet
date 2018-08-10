@@ -158,7 +158,7 @@ def up_block(from_horizon, upward, cnum, kernel_init, filter_vec=(3,3,1)):
     return merged
 
 def unet(pretrained_weights = None,input_size = (256,256,1),
-         kernel_init='he_normal', channel_num=64,
+         kernel_init='he_normal', num_filters=64,
          num_maxpool = 4,
          lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5):
     '''
@@ -169,7 +169,7 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
             3-5
              4
     '''
-    cnum = channel_num
+    cnum = num_filters
     depth = num_maxpool
 
     x = inp = Input(input_size)

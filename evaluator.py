@@ -103,7 +103,7 @@ def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
 def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
                          eval_summary_name='eval_summary.yml',
                          files_2b_copied=None,
-                         num_maxpool=4,
+                         num_filters=64,num_maxpool=4,
                          modulo=16):
     '''
     '''
@@ -131,7 +131,8 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
     test_answers = list(load_imgs(test_label_dir))
 
     #---- eval ----
-    segnet = model.unet(model_path, (None,None,1), num_maxpool=num_maxpool)
+    segnet = model.unet(model_path, (None,None,1), 
+                        num_filters=num_filters, num_maxpool=num_maxpool)
     train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers, modulo)
     valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers, modulo)
     test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers, modulo)
