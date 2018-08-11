@@ -39,18 +39,26 @@ if __name__ == '__main__':
              crop_before_augs=[
                iaa.Fliplr(0.5),
                iaa.Flipud(0.5),
-               iaa.ElasticTransformation(alpha=(100,200),sigma=14),
+               iaa.ElasticTransformation(alpha=(100,200),sigma=14,mode='reflect'),
                iaa.Affine(rotate=(-180,180),mode='reflect'),
              ] 
-             #crop_before_augs=[ iaa.Affine(rotate=(-180,180),mode='reflect') ] 
-             #crop_before_augs=[iaa.Affine(rotate=(-180,180))] 
+           )
+    aug3 = augmenter(1,256,1, 
+             crop_before_augs=[
+               iaa.Fliplr(0.5),
+               iaa.Flipud(0.5),
+               iaa.ElasticTransformation(alpha=(100,200),sigma=14,mode='nearest'),
+               iaa.Affine(rotate=(-180,180),mode='symmetric'),
+             ] 
            )
     imgs = load_imgs('./tmp_exp')
     for img in imgs:
         img1 = aug1.augment_images([img])
         img2 = aug2.augment_images([img])
+        img3 = aug3.augment_images([img])
         cv2.imshow( '1', img1.reshape((256,256,1)) )
         cv2.imshow( '2', img2.reshape((256,256,1)) )
+        cv2.imshow( '3', img3.reshape((256,256,1)) )
         cv2.waitKey(0)
 
 '''

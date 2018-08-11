@@ -9,10 +9,10 @@ import cv2
 from skimage.viewer import ImageViewer
 from itertools import cycle, islice
 from data_gen import augmenter
+from imgaug import augmenters as iaa
 from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
 from keras import backend as K
-import gc
 
 def batch_gen(imgs, masks, batch_size, augmentater):
     assert len(imgs) == len(masks)
@@ -45,6 +45,8 @@ def main(experiment_yml_path):
     IMG_SIZE = settings['IMG_SIZE']
     BATCH_SIZE = settings['BATCH_SIZE']
     NUM_EPOCHS = settings['NUM_EPOCHS']
+
+    data_augmentation = settings['data_augmentation'] # string
 
     dataset_dir = settings['dataset_dir']
     save_model_path = settings['save_model_path']## NOTE
@@ -87,8 +89,19 @@ def main(experiment_yml_path):
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
     test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
 
-    aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
-    if sqr_crop_dataset is True:
+    if data_augmentation == 'bioseg':
+        aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
+                crop_before_augs=[
+                  iaa.Fliplr(0.5),
+                  iaa.Flipud(0.5),
+                  iaa.ElasticTransformation(alpha=(100,200),sigma=14,mode='reflect'),
+                  iaa.Affine(rotate=(-180,180),mode='reflect'),
+                ] 
+              )
+    elif data_augmentation == 'no_aug':
+        aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
+
+    if sqr_crop_dataset:
         aug = None
 
     my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug)
