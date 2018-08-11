@@ -163,11 +163,11 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
          lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5):
     '''
     depth = 4
-    x -> 0-------8 -> y
-          1-----7
-           2---6
-            3-5
-             4
+    inp -> 0-------8 -> out
+            1-----7
+             2---6
+              3-5
+               4
     '''
     cnum = num_filters
     depth = num_maxpool
