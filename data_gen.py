@@ -1,7 +1,8 @@
 import numpy as np
 from imgaug import augmenters as iaa
 
-def augmenter(batch_size = 4, crop_size=256, num_channels=3):
+def augmenter(batch_size=4, crop_size=256, num_channels=3,
+              crop_before_augs=(), crop_after_augs=()):
     n_img = batch_size
     size = crop_size
     n_ch = num_channels
@@ -19,12 +20,38 @@ def augmenter(batch_size = 4, crop_size=256, num_channels=3):
     def func_keypoints(keypoints_on_images, random_state, parents, hooks):
         return keypoints_on_images
 
-    return iaa.Sequential([
-             iaa.Lambda(
-               func_images=func_images,
-               func_heatmaps=func_heatmaps,
-               func_keypoints=func_keypoints),
-           ])
+    aug_list = (\
+       list(crop_before_augs) + 
+       [iaa.Lambda(
+         func_images=func_images,
+         func_heatmaps=func_heatmaps,
+         func_keypoints=func_keypoints)] +
+       list(crop_after_augs)
+    )
+    print(aug_list)
+    return iaa.Sequential(aug_list)
+
+import cv2
+from utils import file_paths, load_imgs
+if __name__ == '__main__':
+    aug1 = augmenter(1,256,1)
+    aug2 = augmenter(1,256,1, 
+             crop_before_augs=[
+               iaa.Fliplr(0.5),
+               iaa.Flipud(0.5),
+               iaa.ElasticTransformation(alpha=(100,200),sigma=14),
+               iaa.Affine(rotate=(-180,180),mode='reflect'),
+             ] 
+             #crop_before_augs=[ iaa.Affine(rotate=(-180,180),mode='reflect') ] 
+             #crop_before_augs=[iaa.Affine(rotate=(-180,180))] 
+           )
+    imgs = load_imgs('./tmp_exp')
+    for img in imgs:
+        img1 = aug1.augment_images([img])
+        img2 = aug2.augment_images([img])
+        cv2.imshow( '1', img1.reshape((256,256,1)) )
+        cv2.imshow( '2', img2.reshape((256,256,1)) )
+        cv2.waitKey(0)
 
 '''
 import re
