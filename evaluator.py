@@ -33,6 +33,7 @@ def modulo_padded(img, modulo=16):
     elif len(img.shape) == 2:
         return np.pad(img, [(0,h_padding),(0,w_padding)], mode='reflect')
 
+from tensorflow.errors import ResourceExhaustedError
 def evaluate(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
@@ -43,20 +44,26 @@ def evaluate(segnet, inputs, answers, modulo=16):
         img_shape = img.shape #NOTE grayscale!
         img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
-        segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
-        segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
+        try:
+            segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
+            segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
 
-        print(img_shape)
-        result_tuples.append( (inp.reshape([org_h,org_w]), 
-                               answer.reshape([org_h,org_w]),  
-                               segmap.reshape([org_h,org_w])) )
-        '''
-        io.imshow_collection([inp.reshape((org_h,org_w)), 
-                              answer.reshape((org_h,org_w)),  
-                              segmap.reshape((org_h,org_w)),]); io.show() # output
-                              '''
-        iou_score = iou(answer,segmap)
-        iou_arr.append( np.asscalar(np.mean(iou_score)) )
+            result_tuples.append( (inp.reshape([org_h,org_w]), 
+                                   answer.reshape([org_h,org_w]),  
+                                   segmap.reshape([org_h,org_w])) )
+            '''
+            io.imshow_collection([inp.reshape((org_h,org_w)), 
+                                  answer.reshape((org_h,org_w)),  
+                                  segmap.reshape((org_h,org_w)),]); io.show() # output
+                                  '''
+            iou_score = iou(answer,segmap)
+            iou_arr.append( np.asscalar(np.mean(iou_score)) )
+        except ResourceExhaustedError:
+            print(img_shape,'OOM error')
+            # Now it just skip very big image, but you can implement OOM free code.
+            # For instance, if OOM happen, divide image into 4 pieces, modulo_pad them,
+            # predict 4 segmaps, and then merge them. And also save image shape that
+            # caused OOM error, that would be used later.
     return iou_arr, result_tuples
 
 def save_eval_summary(eval_summary_path,
