@@ -94,9 +94,20 @@ def main(experiment_yml_path):
                 crop_before_augs=[
                   iaa.Fliplr(0.5),
                   iaa.Flipud(0.5),
-                  iaa.ElasticTransformation(alpha=(100,200),sigma=14,mode='reflect'),
                   iaa.Affine(rotate=(-180,180),mode='reflect'),
-                ] 
+                ],
+                crop_after_augs=[
+                  iaa.ElasticTransformation(alpha=(100,200),sigma=14,mode='reflect'),
+                ]
+              )
+    elif data_augmentation == 'manga_gb':
+        aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
+                crop_before_augs=[
+                  iaa.Affine(
+                    rotate=(-3,3), shear=(-3,3), 
+                    scale={'x':(0.8,1.5), 'y':(0.8,1.5)},
+                    mode='reflect'),
+                ]
               )
     elif data_augmentation == 'no_aug':
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
@@ -108,7 +119,13 @@ def main(experiment_yml_path):
     valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
     #--------------------------------------------------------------------
-
+    '''
+    '''
+    # DEBUG
+    for ims,mas in my_gen:
+        for im,ma in zip(ims,mas):
+            cv2.imshow('i',im)
+            cv2.imshow('m',ma); cv2.waitKey(0)
     #---------------------------- train model ---------------------------
     if kernel_init is None: kernel_init = 'he_normal'
     if num_maxpool is None: num_maxpool = 4 
@@ -141,7 +158,7 @@ def main(experiment_yml_path):
     num_imgs = len(origins)
 
     if not sqr_crop_dataset:
-        aug_det = augmenter(num_imgs,IMG_SIZE,1).to_deterministic()
+        aug_det = augmenter(num_imgs,IMG_SIZE,1).to_deterministic() # no augmentation!
         origins = aug_det.augment_images(origins)
         answers = aug_det.augment_images(answers)
 

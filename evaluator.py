@@ -46,6 +46,7 @@ def evaluate(segnet, inputs, answers, modulo=16):
         segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
         segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
 
+        print(img_shape)
         result_tuples.append( (inp.reshape([org_h,org_w]), 
                                answer.reshape([org_h,org_w]),  
                                segmap.reshape([org_h,org_w])) )
@@ -163,13 +164,18 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
 if __name__ == '__main__':
     #dataset_dir = 'data'
     #dataset_dir = 'data/Malignant_91sep/'
-    dataset_dir = 'data/Benigh_74sep/'
+    #dataset_dir = 'data/Benigh_74sep/'
+    dataset_dir = './data/eval_test/'
 
     #model_path = './malignant.h5'
-    model_path = './benigh.h5'
+    #model_path = './benigh.h5'
     #model_path = './seg_data.h5'
+    #model_path = './data/18-8-8full_gbs/18-8-8full_gbs.h5'
+    model_path = './benigh.h5'
 
-    eval_result_dirpath = 'data/Benigh_74sep/eval_results'
+    #eval_result_dirpath = 'data/Benigh_74sep/eval_results'
+    #eval_result_dirpath = 'data/18-8-8full_gbs/eval_results'
+    eval_result_dirpath = 'data/eval_test'
     eval_and_save_result(dataset_dir, model_path, 
-                         os.path.join(eval_result_dirpath,'eval11'),
+                         os.path.join(eval_result_dirpath,'test'),
                          'eval_summary.yml')
