@@ -59,6 +59,7 @@ def main(experiment_yml_path):
     kernel_init = settings.get('kernel_init')
     num_maxpool = settings.get('num_maxpool')
     num_filters = settings.get('num_filters')
+    overlap_factor = settings.get('overlap_factor')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -67,13 +68,6 @@ def main(experiment_yml_path):
     train_dir = os.path.join(dataset_dir,'train')
     valid_dir = os.path.join(dataset_dir,'valid')
     test_dir = os.path.join(dataset_dir,'test')
-
-    num_train_imgs = len(os.listdir( os.path.join(train_dir,'image')) )
-    num_valid_imgs = len(os.listdir( os.path.join(valid_dir,'image')) )
-    TRAIN_STEPS_PER_EPOCH = modulo_ceil(num_train_imgs,BATCH_SIZE) // BATCH_SIZE  # num images: 37 = (10 step) * (4 BATCH_SIZE)
-    VALID_STEPS_PER_EPOCH = modulo_ceil(num_valid_imgs,BATCH_SIZE) // BATCH_SIZE  # num images: 19 = (5 step) * (4 BATCH_SIZE)
-    print('# train images =', num_train_imgs, '| train steps/epoch =', TRAIN_STEPS_PER_EPOCH)
-    print('# valid images =', num_valid_imgs, '| valid steps/epoch =', VALID_STEPS_PER_EPOCH)
 
     output_dir = os.path.join(dataset_dir,'output')
     origin_dir = os.path.join(output_dir,'image')
@@ -88,6 +82,23 @@ def main(experiment_yml_path):
     valid_masks =list(load_imgs(os.path.join(valid_dir,'label')))
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
     test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
+
+    if overlap_factor is None: overlap_factor = 2
+    #calc mean h,w of dataset
+    tr_h, tr_w = sum(map(lambda img: np.array(img.shape[:2]),train_imgs)) / len(train_imgs)
+    vl_h, vl_w = sum(map(lambda img: np.array(img.shape[:2]),valid_imgs)) / len(valid_imgs)
+    te_h, te_w = sum(map(lambda img: np.array(img.shape[:2]),test_imgs))  / len(test_imgs)
+    #print(tr_h,tr_w, '|', vl_h,vl_w, '|', te_h,te_w)
+    train_num_sample = int((tr_h/IMG_SIZE) * (tr_w/IMG_SIZE) * overlap_factor)
+    valid_num_sample = int((vl_h/IMG_SIZE) * (vl_w/IMG_SIZE) * overlap_factor)
+    test_num_sample  = int((te_h/IMG_SIZE) * (te_w/IMG_SIZE) * overlap_factor)
+    #print(train_num_sample,valid_num_sample,test_num_sample)
+    train_steps_per_epoch = modulo_ceil(len(train_imgs),BATCH_SIZE) // BATCH_SIZE * train_num_sample
+    valid_steps_per_epoch = modulo_ceil(len(valid_imgs),BATCH_SIZE) // BATCH_SIZE * valid_num_sample
+    test_steps_per_epoch  = modulo_ceil(len(test_imgs),BATCH_SIZE)  // BATCH_SIZE * test_num_sample
+    print('# train images =', len(train_imgs), '| train steps/epoch =', train_steps_per_epoch)
+    print('# valid images =', len(valid_imgs), '| valid steps/epoch =', valid_steps_per_epoch)
+    print('#  test images =', len(test_imgs),  '|  test steps/epoch =', test_steps_per_epoch)
 
     if data_augmentation == 'bioseg':
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
@@ -120,12 +131,12 @@ def main(experiment_yml_path):
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
     #--------------------------------------------------------------------
     '''
-    '''
     # DEBUG
     for ims,mas in my_gen:
         for im,ma in zip(ims,mas):
             cv2.imshow('i',im)
             cv2.imshow('m',ma); cv2.waitKey(0)
+    '''
     #---------------------------- train model ---------------------------
     if kernel_init is None: kernel_init = 'he_normal'
     if num_maxpool is None: num_maxpool = 4 
@@ -143,8 +154,8 @@ def main(experiment_yml_path):
                                         verbose=1, save_best_only=True)
     train_timer = ElapsedTimer(experiment_yml_path + ' training')
     history = model.fit_generator(my_gen, epochs=NUM_EPOCHS,
-                                  steps_per_epoch=TRAIN_STEPS_PER_EPOCH, 
-                                  validation_steps=VALID_STEPS_PER_EPOCH,
+                                  steps_per_epoch=train_steps_per_epoch, 
+                                  validation_steps=valid_steps_per_epoch,
                                   validation_data=valid_gen, 
                                   callbacks=[model_checkpoint])
     train_time_str = train_timer.elapsed_time()
@@ -164,10 +175,9 @@ def main(experiment_yml_path):
 
     predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
-
     evaluator.save_img_tuples(zip(origins,answers,predictions),result_dir)
 
-    test_metrics = model.evaluate_generator(test_gen, steps=3)
+    test_metrics = model.evaluate_generator(test_gen, steps=test_steps_per_epoch)
     K.clear_session()
     #print(model.metrics_names)
     #print(test_metrics)
