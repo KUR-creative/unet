@@ -11,6 +11,7 @@ from sklearn.metrics import confusion_matrix
 from keras import backend as K
 
 import model
+import utils
 from utils import bgr_float32, load_imgs
 from utils import assert_exists, assert_not_exists
 
@@ -65,6 +66,21 @@ def evaluate(segnet, inputs, answers, modulo=16):
             # predict 4 segmaps, and then merge them. And also save image shape that
             # caused OOM error, that would be used later.
     return iou_arr, result_tuples
+def inference(segnet, inputs, modulo=16):
+    outputs = []
+    for inp in inputs:
+        org_h,org_w = inp.shape[:2]
+
+        img = modulo_padded(inp, modulo)
+        img_shape = img.shape #NOTE grayscale!
+        img_bat = img.reshape((1,) + img_shape) # size 1 batch
+        try:
+            segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
+            segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
+            outputs.append(segmap)
+        except ResourceExhaustedError:
+            print(img_shape,'OOM error: image is too big.')
+    return outputs
 
 def save_eval_summary(eval_summary_path,
                       train_iou_arr, valid_iou_arr, test_iou_arr):
@@ -168,21 +184,30 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
         shutil.copyfile(file_path, os.path.join(eval_result_dirpath, file_name))
         print("file '%s' is copyed into '%s'" % (file_name,eval_result_dirpath))
 
+import sys,pathlib
+from fp import pipe,cmap,cfilter
 if __name__ == '__main__':
-    #dataset_dir = 'data'
-    #dataset_dir = 'data/Malignant_91sep/'
-    #dataset_dir = 'data/Benigh_74sep/'
-    dataset_dir = './data/eval_test/'
+    '''
+    python evaluator.py segnet.h5 imgs_dir output_dir
+    '''
+    segnet_model_path = sys.argv[1]
+    imgs_dir = sys.argv[2]
+    output_dir = sys.argv[3]
+    utils.safe_copytree(imgs_dir, output_dir,['*.*'])
 
-    #model_path = './malignant.h5'
-    #model_path = './benigh.h5'
-    #model_path = './seg_data.h5'
-    #model_path = './data/18-8-8full_gbs/18-8-8full_gbs.h5'
-    model_path = './benigh.h5'
+    segnet = model.unet(segnet_model_path, (None,None,1))
 
-    #eval_result_dirpath = 'data/Benigh_74sep/eval_results'
-    #eval_result_dirpath = 'data/18-8-8full_gbs/eval_results'
-    eval_result_dirpath = 'data/eval_test'
-    eval_and_save_result(dataset_dir, model_path, 
-                         os.path.join(eval_result_dirpath,'test'),
-                         'eval_summary.yml')
+    f = pipe(utils.file_paths, 
+             cmap(lambda path: (cv2.imread(path,0), path)),
+             cfilter(lambda img_path: img_path[0] is not None),
+             cmap(lambda img_path: (utils.bgr_float32(img_path[0]), img_path[1]) ),
+             cmap(lambda im_p: (im_p[0].reshape((1,)+im_p[0].shape), im_p[1]) ),
+             cmap(lambda im_p: (inference(segnet,im_p[0]), im_p[1])))
+    old_parent_dir = pathlib.Path(imgs_dir).parts[-1]
+    
+    for segmap_list, img_path in f(imgs_dir):
+        new_path = utils.make_dstpath(img_path, old_parent_dir, output_dir)
+        segmap = segmap_list[0]
+        segmap = (segmap.reshape(segmap.shape[:2]) * 255).astype(np.uint8)
+        #cv2.imshow('segmap',segmap); cv2.waitKey(0)
+        cv2.imwrite(new_path, segmap)
