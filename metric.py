@@ -69,16 +69,17 @@ def tp_table(itab):
     return ret_tab
 
 def confusion_stats(tp_table):
+    len_y = len(tp_table)
+    len_x = len(tp_table[0])
     ys = np.argmax(tp_table, axis=0)
     xs = np.argmax(tp_table, axis=1)
-    tp = len(np.unique(ys)) - 1 # skip 0
-    fp = len(xs) - tp - 1 # skip 0
-    fn = len(ys) - tp - 1 # skip 0
-    #print(tp,fp,fn)
-    #print('ri:',ys)
-    #print('ci:',xs)
 
-    
+    tp = len(np.unique(ys)) - 1 # skip 0
+    fp = len_x - tp - 1 # skip 0
+    fn = len_y - tp - 1 # skip 0
+    #print(tp,fp,fn)
+    #print('yi:',ys)
+    #print('xi:',xs)
     ys = filter(lambda y: y != 0,ys[1:])
     xs = filter(lambda x: x != 0,xs[1:])
     tp_yxs = [(0,0)] + list(zip(ys,xs))
@@ -202,12 +203,46 @@ class Test_stats(unittest.TestCase):
             [0,0,0,0,0,0],
         ],dtype=int)
         expected = (3, 2, 2)
-        tp, fp, fn = confusion_stats(tp_tab)
+        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
         self.assertEqual((tp,fp,fn), expected)
+        self.assertEqual(tp_yxs, [(0,0),(1,1),(2,3),(3,5)])
 
-    def test_f1score(self):
-        self.assertTrue(False,'implement f1score!')
+    def test_dice_obj(self):
+        ans = np.array([
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,3,3,0,0,0,0,0,0,0,0],
+            [0,3,3,0,4,4,0,0,0,0,0],
+            [0,0,0,0,0,4,0,0,0,5,5],
+            [0,0,0,0,0,0,0,0,0,5,5],
+        ],dtype=np.uint8)
+        pred = np.array([
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,0,1,1,0,2,2,0],
+            [0,3,3,3,0,0,0,0,2,0,0],
+            [0,3,3,3,0,0,0,0,0,0,0],
+            [0,3,3,3,0,0,4,4,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,5,5,5,5,5,0,0,0,0,0],
+            [0,5,5,5,5,5,0,0,0,7,7],
+            [0,5,5,5,5,5,0,6,0,0,0],
+            [0,0,0,0,0,0,0,6,0,0,0],
+        ],dtype=np.uint8)
 
+        ans_areas = [ 0,30, 9, 4, 3, 4]
+        pred_areas= [ 0, 4, 3, 9, 2,15, 2, 2]
+
+        tp_tab = tp_table(intersection_table(ans,6, pred,8))
+        expected_stats = (3, 4, 2)
+        #print(tp_tab)
+        self.assertEqual(confusion_stats(tp_tab)[:3],
+                         expected_stats)
 
 if __name__ == '__main__':
     unittest.main()
