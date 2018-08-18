@@ -273,23 +273,101 @@ class Test_stats(unittest.TestCase):
         ans_areas = [ 0,30, 9, 4, 3, 4]
         pred_areas= [ 0, 4, 3, 9, 2,15, 2, 2]
 
-        tp_tab = tp_table(intersection_table(ans,6, pred,8))
-        expected_stats = 3,4,2, [(0,0),(1,1),(2,3),(3,5)]
-
+        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
+                                             pred,len(pred_areas)))
         tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+
+        expected_stats = 3,4,2, [(0,0),(1,1),(2,3),(3,5)]
         self.assertEqual((tp, fp, fn, tp_yxs), expected_stats)
+        print(f1score(tp,fp,fn))
 
-        ans_intersects = np.sum(tp_tab,axis=1) 
-        pred_intersects = np.sum(tp_tab,axis=0)
-        self.assertEqual(ans_intersects.tolist(), [0,4,6,4,0,0])
-        self.assertEqual(pred_intersects.tolist(), [0,4,0,6,0,4,0,0])
+        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        self.assertAlmostEqual(dice_obj, 0.3265785289933897)
+        print(dice_obj)
+        # segmented dice 
 
-        gamma = area_ratios(ans_areas,sum(ans_areas))
-        sigma = area_ratios(pred_areas,sum(pred_areas))
-        self.assertTrue(np.array_equal(gamma, [0.0, 0.6, 0.18, 0.08, 0.06, 0.08]))
-        self.assertTrue(np.array_equal(sigma, [0.0, 0.10810810810810811, 0.08108108108108109, 0.24324324324324326, 0.05405405405405406, 0.40540540540540543, 0.05405405405405406, 0.05405405405405406]))
+    def test_0dice(self):
+        ans = np.array([
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,3,3,0,0,0,0,0,0,0,0],
+            [0,3,3,0,4,4,0,0,0,0,0],
+            [0,0,0,0,0,4,0,0,0,5,5],
+            [0,0,0,0,0,0,0,0,0,5,5],
+        ],dtype=np.uint8)
+        pred = np.array([
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,1,1,0,0],
+            [0,2,2,0,0,0,0,1,1,0,0],
+        ],dtype=np.uint8)
+        ans_areas = [ 0,30, 9, 4, 3, 4]
+        pred_areas = [0, 4, 2]
 
-        #g_dice_pix = sum(map(lambda x: x
+        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
+                                             pred,len(pred_areas)))
+        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+
+        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        self.assertAlmostEqual(dice_obj, 0)
+
+    def test_1dice(self):
+        ans = np.array([
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,2,2,2,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,3,3,0,0,0,0,0,0,0,0],
+            [0,3,3,0,4,4,0,0,0,0,0],
+            [0,0,0,0,0,4,0,0,0,5,5],
+            [0,0,0,0,0,0,0,0,0,5,5],
+        ],dtype=np.uint8)
+        pred = ans.copy()
+        ans_areas = pred_areas = [ 0,30, 9, 4, 3, 4]
+        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
+                                             pred,len(pred_areas)))
+        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+
+        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        self.assertAlmostEqual(dice_obj, 1)
+
+    def test_1label(self):
+        ans = np.array([
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,1,1,1,1,1,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0],
+        ],dtype=np.uint8)
+        pred = ans.copy()
+        ans_areas = pred_areas = [0,30]
+        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
+                                             pred,len(pred_areas)))
+        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+
+        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        self.assertAlmostEqual(dice_obj, 1)
 
 
 if __name__ == '__main__':
