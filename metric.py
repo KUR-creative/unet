@@ -89,13 +89,13 @@ def f1score(tp, fp, fn):
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * precision * recall / (precision + recall)
-    
-def intersection_areas(tp_table, tp_yxs):
-    return list(map(lambda yx: tp_table[yx], tp_yxs))
 
 def area_ratios(areas, sum_areas):
     ''' NOTE: areas[0] must be 0, and it will skip 0! '''
     return list(map(lambda area: area / sum_areas, areas))
+
+def dice_pixel(area_true, area_pred, intersections):
+    return intersection / (area_true + area_pred)
 
 '''
 cv2.imshow('a',ans_component.astype(np.float32))
@@ -257,14 +257,17 @@ class Test_stats(unittest.TestCase):
         tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
         self.assertEqual((tp, fp, fn, tp_yxs), expected_stats)
 
-        intersect_areas = intersection_areas(tp_tab,tp_yxs)
-        self.assertEqual(intersect_areas, [0,4,6,4])
+        ans_intersects = np.sum(tp_tab,axis=1) 
+        pred_intersects = np.sum(tp_tab,axis=0)
+        self.assertEqual(ans_intersects.tolist(), [0,4,6,4,0,0])
+        self.assertEqual(pred_intersects.tolist(), [0,4,0,6,0,4,0,0])
 
         gamma = area_ratios(ans_areas,sum(ans_areas))
         sigma = area_ratios(pred_areas,sum(pred_areas))
         self.assertTrue(np.array_equal(gamma, [0.0, 0.6, 0.18, 0.08, 0.06, 0.08]))
         self.assertTrue(np.array_equal(sigma, [0.0, 0.10810810810810811, 0.08108108108108109, 0.24324324324324326, 0.05405405405405406, 0.40540540540540543, 0.05405405405405406, 0.05405405405405406]))
 
+        #g_dice_pix = sum(map(lambda x: x
 
 
 if __name__ == '__main__':
