@@ -51,6 +51,32 @@ def intersection_table(ans, num_ans_labels, pred, num_pred_labels):
             itab[ans_label,pred_label] = num_intersected
     return itab
 
+def tp_table(itab):
+    def leave_max(v):
+        m = np.max(v)
+        i = np.argmax(v)
+        v[:] = 0
+        v[i] = m
+        return v
+    ret_tab = itab.copy()
+    ret_tab = np.array(list(map(leave_max, ret_tab)))
+    ret_tab = np.array(list(map(leave_max, ret_tab.T)))
+    ret_tab = ret_tab.T
+    return ret_tab
+
+def confusion_stats(tp_table):
+    row_idxes = np.argmax(tp_table, axis=0)
+    col_idxes = np.argmax(tp_table, axis=1)
+    tp = len(np.unique(row_idxes)) - 1 # skip 0
+    fp = len(col_idxes) - tp - 1 # skip 0
+    fn = len(row_idxes) - tp - 1 # skip 0
+    #print(tp,fp,fn)
+    #print('ri:',row_idxes)
+    #print('ci:',col_idxes)
+    return (tp,fp,fn)
+
+def f1score(itab):
+    return 0
 '''
 cv2.imshow('a',ans_component.astype(np.float32))
 cv2.imshow('p',pred_component.astype(np.float32))
@@ -139,6 +165,43 @@ class test_itable(unittest.TestCase):
         actual_itab = intersection_table(ans,len(np.unique(ans)), 
                                          pred,len(np.unique(pred)))
 
+class Test_stats(unittest.TestCase):
+    def test_max_itab(self):
+        itab = np.array([
+            [0,0,0,0,0,0],
+            [0,4,3,0,2,0],
+            [0,0,0,9,0,0],
+            [0,0,0,0,0,4],
+            [0,0,0,0,0,3],
+        ],dtype=int)
+        expected = np.array([
+            [0,0,0,0,0,0],
+            [0,4,0,0,0,0],
+            [0,0,0,9,0,0],
+            [0,0,0,0,0,4],
+            [0,0,0,0,0,0],
+        ],dtype=int)
+        actual = tp_table(itab)
+
+        self.assertEqual(actual.tolist(), expected.tolist())
+
+    def test_stats(self):
+        tp_tab = np.array([
+            [0,0,0,0,0,0],
+            [0,4,0,0,0,0],
+            [0,0,0,9,0,0],
+            [0,0,0,0,0,4],
+            [0,0,0,0,0,0],
+            [0,0,0,0,0,0],
+        ],dtype=int)
+        expected = (3, 2, 2)
+        tp, fp, fn = confusion_stats(tp_tab)
+        self.assertEqual((tp,fp,fn), expected)
+
+    def test_f1score(self):
+        self.assertTrue(False,'implement f1score!')
+
 
 if __name__ == '__main__':
     unittest.main()
+
