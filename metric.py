@@ -85,6 +85,18 @@ def confusion_stats(tp_table):
     tp_yxs = [(0,0)] + list(zip(ys,xs))
     return tp,fp,fn, tp_yxs
 
+def f1score(tp, fp, fn):
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return 2 * precision * recall / (precision + recall)
+    
+def intersection_areas(tp_table, tp_yxs):
+    return list(map(lambda yx: tp_table[yx], tp_yxs))
+
+def area_ratios(areas, sum_areas):
+    ''' NOTE: areas[0] must be 0, and it will skip 0! '''
+    return list(map(lambda area: area / sum_areas, areas))
+
 '''
 cv2.imshow('a',ans_component.astype(np.float32))
 cv2.imshow('p',pred_component.astype(np.float32))
@@ -207,6 +219,8 @@ class Test_stats(unittest.TestCase):
         self.assertEqual((tp,fp,fn), expected)
         self.assertEqual(tp_yxs, [(0,0),(1,1),(2,3),(3,5)])
 
+        #print('f1score =',f1score(*expected))
+
     def test_dice_obj(self):
         ans = np.array([
             [0,0,0,0,0,0,0,0,0,0,0],
@@ -234,15 +248,24 @@ class Test_stats(unittest.TestCase):
             [0,5,5,5,5,5,0,6,0,0,0],
             [0,0,0,0,0,0,0,6,0,0,0],
         ],dtype=np.uint8)
-
         ans_areas = [ 0,30, 9, 4, 3, 4]
         pred_areas= [ 0, 4, 3, 9, 2,15, 2, 2]
 
         tp_tab = tp_table(intersection_table(ans,6, pred,8))
-        expected_stats = (3, 4, 2)
-        #print(tp_tab)
-        self.assertEqual(confusion_stats(tp_tab)[:3],
-                         expected_stats)
+        expected_stats = 3,4,2, [(0,0),(1,1),(2,3),(3,5)]
+
+        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+        self.assertEqual((tp, fp, fn, tp_yxs), expected_stats)
+
+        intersect_areas = intersection_areas(tp_tab,tp_yxs)
+        self.assertEqual(intersect_areas, [0,4,6,4])
+
+        gamma = area_ratios(ans_areas,sum(ans_areas))
+        sigma = area_ratios(pred_areas,sum(pred_areas))
+        self.assertTrue(np.array_equal(gamma, [0.0, 0.6, 0.18, 0.08, 0.06, 0.08]))
+        self.assertTrue(np.array_equal(sigma, [0.0, 0.10810810810810811, 0.08108108108108109, 0.24324324324324326, 0.05405405405405406, 0.40540540540540543, 0.05405405405405406, 0.05405405405405406]))
+
+
 
 if __name__ == '__main__':
     unittest.main()
