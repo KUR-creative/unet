@@ -122,7 +122,7 @@ def object_dice(tp_tab, tp_yxs, ans_areas, pred_areas):
         g_dice += gamma[y] * dice
         s_dice += sigma[x] * dice
     #print(g_dice, s_dice)
-    return 0.5 * (g_dice + s_dice)
+    return float(0.5 * (g_dice + s_dice))
 
 def advanced_metric(ans, pred):
     ans = (ans >= 0.5).astype(np.uint8) * 255
@@ -441,6 +441,7 @@ class Test_stats(unittest.TestCase):
         pred = cv2.imread('./img/1pred.png',0)
 
         f1, dice_obj = advanced_metric(ans,pred)
+        print(type(f1),type(dice_obj))
         print('f1score =', f1)
         print('dice_obj =', dice_obj)
 
