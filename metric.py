@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import utils
-imgs = list(utils.load_imgs('img'))
 '''
 ans = (imgs[0] >= 0.5).astype(np.uint8) * 255
 pred = (imgs[1] >= 0.5).astype(np.uint8) * 255
@@ -369,7 +368,31 @@ class Test_stats(unittest.TestCase):
         dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
         self.assertAlmostEqual(dice_obj, 1)
 
+    #@unittest.skip('later')
+    def test_real_data(self):
+        ans0 = cv2.imread('./img/0ans.png',0)
+        pred0 = cv2.imread('./img/0pred.png',0)
+        ans0 = (ans0 >= 0.5).astype(np.uint8) * 255
+        pred0 = (pred0 >= 0.5).astype(np.uint8) * 255
 
+        ans_ouput = cv2.connectedComponentsWithStats(ans0, 4)
+        ans = ans_ouput[1]
+        ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
+        print(ans_areas)
+
+        pred_ouput = cv2.connectedComponentsWithStats(pred0, 4)
+        pred = pred_ouput[1]
+        pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
+        print(pred_areas)
+
+        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
+                                             pred,len(pred_areas)))
+        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+        print('real f1score =', f1score(tp,fp,fn))
+
+        print('wtf?')
+        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        print('dice_obj =', dice_obj)
 if __name__ == '__main__':
     unittest.main()
 
