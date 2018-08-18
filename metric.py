@@ -42,12 +42,14 @@ def intersection_table(ans, num_ans_labels, pred, num_pred_labels):
     '''
     assert ans.shape == pred.shape
     itab = np.zeros((num_ans_labels,num_pred_labels),dtype=int)
+    #print(itab.shape, num_ans_labels, num_pred_labels)
     for ans_label in range(1,num_ans_labels):
-        for pred_label in range(1,num_ans_labels):
+        for pred_label in range(1,num_pred_labels):
             ans_component = (ans == ans_label)
             pred_component = (pred == pred_label)
             intersection = ans_component * pred_component
             num_intersected = np.sum(intersection.astype(int))
+            #print(ans_label,pred_label)
             itab[ans_label,pred_label] = num_intersected
     return itab
 
