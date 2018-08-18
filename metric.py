@@ -52,6 +52,10 @@ def intersection_table(ans, num_ans_labels, pred, num_pred_labels):
     return itab
 
 def tp_table(itab):
+    '''
+    itab: intersection_table
+    return true-positive value table
+    '''
     def leave_max(v):
         m = np.max(v)
         i = np.argmax(v)
@@ -65,18 +69,21 @@ def tp_table(itab):
     return ret_tab
 
 def confusion_stats(tp_table):
-    row_idxes = np.argmax(tp_table, axis=0)
-    col_idxes = np.argmax(tp_table, axis=1)
-    tp = len(np.unique(row_idxes)) - 1 # skip 0
-    fp = len(col_idxes) - tp - 1 # skip 0
-    fn = len(row_idxes) - tp - 1 # skip 0
+    ys = np.argmax(tp_table, axis=0)
+    xs = np.argmax(tp_table, axis=1)
+    tp = len(np.unique(ys)) - 1 # skip 0
+    fp = len(xs) - tp - 1 # skip 0
+    fn = len(ys) - tp - 1 # skip 0
     #print(tp,fp,fn)
-    #print('ri:',row_idxes)
-    #print('ci:',col_idxes)
-    return (tp,fp,fn)
+    #print('ri:',ys)
+    #print('ci:',xs)
 
-def f1score(itab):
-    return 0
+    
+    ys = filter(lambda y: y != 0,ys[1:])
+    xs = filter(lambda x: x != 0,xs[1:])
+    tp_yxs = [(0,0)] + list(zip(ys,xs))
+    return tp,fp,fn, tp_yxs
+
 '''
 cv2.imshow('a',ans_component.astype(np.float32))
 cv2.imshow('p',pred_component.astype(np.float32))
