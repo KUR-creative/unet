@@ -112,8 +112,8 @@ def object_dice(tp_tab, tp_yxs, ans_areas, pred_areas):
     pred_areas[0] = 0
     gamma = area_ratios(ans_areas,sum(ans_areas))
     sigma = area_ratios(pred_areas,sum(pred_areas))
-    print('g',gamma)
-    print('s',sigma)
+    #print('g',gamma)
+    #print('s',sigma)
 
     g_dice = 0 # ground truth dice 
     s_dice = 0 # segmented dice
@@ -124,7 +124,27 @@ def object_dice(tp_tab, tp_yxs, ans_areas, pred_areas):
     #print(g_dice, s_dice)
     return 0.5 * (g_dice + s_dice)
 
-#def advanced_metric(ans, pred):
+def advanced_metric(ans, pred):
+    ans = (ans >= 0.5).astype(np.uint8) * 255
+    pred = (pred >= 0.5).astype(np.uint8) * 255
+
+    ans_ouput = cv2.connectedComponentsWithStats(ans, 4)
+    ans = ans_ouput[1]
+    ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
+    #print(ans_areas)
+
+    pred_ouput = cv2.connectedComponentsWithStats(pred, 4)
+    pred = pred_ouput[1]
+    pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
+    #print(pred_areas)
+
+    tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
+                                         pred,len(pred_areas)))
+    tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
+    f1 = f1score(tp,fp,fn)
+    dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+
+    return f1, dice_obj
 '''
 cv2.imshow('a',ans_component.astype(np.float32))
 cv2.imshow('p',pred_component.astype(np.float32))
@@ -378,137 +398,61 @@ class Test_stats(unittest.TestCase):
     #@unittest.skip('later')
     def test_real_data_same_img(self):
         print('--------------- same imgs ---------------')
-        ans0 = cv2.imread('./img/0ans.png',0)
-        pred0 = ans0.copy()
-        ans0 = (ans0 >= 0.5).astype(np.uint8) * 255
-        pred0 = (pred0 >= 0.5).astype(np.uint8) * 255
+        ans = cv2.imread('./img/0ans.png',0)
+        pred = ans.copy()
 
-        ans_ouput = cv2.connectedComponentsWithStats(ans0, 4)
-        ans = ans_ouput[1]
-        ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
-        print(ans_areas)
+        f1, dice_obj = advanced_metric(ans,pred)
 
-        pred_ouput = cv2.connectedComponentsWithStats(pred0, 4)
-        pred = pred_ouput[1]
-        pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
-        print(pred_areas)
-
-        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
-                                             pred,len(pred_areas)))
-        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
-        print('f1score =', f1score(tp,fp,fn))
-
-        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
-        print('dice_obj =', dice_obj)
-
-        self.assertEqual(f1score(tp,fp,fn),1.0)
+        self.assertEqual(f1,1.0)
         self.assertEqual(dice_obj,1.0)
 
     def test_real_data_pred_no_label_case(self):
         print('------ ordinary ans, no label pred -----')
-        ans0 = cv2.imread('./img/0ans.png',0)
-        pred0 = np.zeros(ans0.shape)
-        ans0 = (ans0 >= 0.5).astype(np.uint8) * 255
-        pred0 = (pred0 >= 0.5).astype(np.uint8) * 255
+        ans = cv2.imread('./img/0ans.png',0)
+        pred = np.zeros(ans.shape)
 
-        ans_ouput = cv2.connectedComponentsWithStats(ans0, 4)
-        ans = ans_ouput[1]
-        ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
-        print(ans_areas)
+        f1, dice_obj = advanced_metric(ans,pred)
 
-        pred_ouput = cv2.connectedComponentsWithStats(pred0, 4)
-        pred = pred_ouput[1]
-        pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
-        print(pred_areas)
-
-        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
-                                             pred,len(pred_areas)))
-        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
-        print('f1score =', f1score(tp,fp,fn))
-
-        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
-        print('dice_obj =', dice_obj)
-
-        self.assertEqual(f1score(tp,fp,fn),0.0)
+        self.assertEqual(f1,0.0)
         self.assertEqual(dice_obj,0.0)
 
     def test_real_data_ans_no_label_case(self):
         print('------ no label ans, ordinary pred -----')
-        pred0 = cv2.imread('./img/0ans.png',0)
-        ans0 = np.zeros(pred0.shape)
-        ans0 = (ans0 >= 0.5).astype(np.uint8) * 255
-        pred0 = (pred0 >= 0.5).astype(np.uint8) * 255
+        pred = cv2.imread('./img/0ans.png',0)
+        ans = np.zeros(pred.shape)
 
-        ans_ouput = cv2.connectedComponentsWithStats(ans0, 4)
-        ans = ans_ouput[1]
-        ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
-        print(ans_areas)
+        f1, dice_obj = advanced_metric(ans,pred)
 
-        pred_ouput = cv2.connectedComponentsWithStats(pred0, 4)
-        pred = pred_ouput[1]
-        pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
-        print(pred_areas)
-
-        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
-                                             pred,len(pred_areas)))
-        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
-        print('f1score =', f1score(tp,fp,fn))
-
-        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
-        print('dice_obj =', dice_obj)
-
-        self.assertEqual(f1score(tp,fp,fn),0.0)
+        self.assertEqual(f1,0.0)
         self.assertEqual(dice_obj,0.0)
 
-    def test_real_data1(self):
+    def test_real_data0(self):
         print('------ ordinary ans, pred has big FN -----')
-        ans0 = cv2.imread('./img/0ans.png',0)
-        pred0 = cv2.imread('./img/0pred.png',0)
-        ans0 = (ans0 >= 0.5).astype(np.uint8) * 255
-        pred0 = (pred0 >= 0.5).astype(np.uint8) * 255
+        ans = cv2.imread('./img/0ans.png',0)
+        pred = cv2.imread('./img/0pred.png',0)
 
-        ans_ouput = cv2.connectedComponentsWithStats(ans0, 4)
-        ans = ans_ouput[1]
-        ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
-        print(ans_areas)
+        f1, dice_obj = advanced_metric(ans,pred)
+        print('f1score =', f1)
+        print('dice_obj =', dice_obj)
 
-        pred_ouput = cv2.connectedComponentsWithStats(pred0, 4)
-        pred = pred_ouput[1]
-        pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
-        print(pred_areas)
+    def test_real_data1(self):
+        print('------ ordinary ans, pred has small FN -----')
+        ans = cv2.imread('./img/1ans.png',0)
+        pred = cv2.imread('./img/1pred.png',0)
 
-        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
-                                             pred,len(pred_areas)))
-        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
-        print('f1score =', f1score(tp,fp,fn))
-
-        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        f1, dice_obj = advanced_metric(ans,pred)
+        print('f1score =', f1)
         print('dice_obj =', dice_obj)
 
     def test_real_data2(self):
         print('------ ordinary ans, pred has small FN -----')
-        ans0 = cv2.imread('./img/1ans.png',0)
-        pred0 = cv2.imread('./img/1pred.png',0)
-        ans0 = (ans0 >= 0.5).astype(np.uint8) * 255
-        pred0 = (pred0 >= 0.5).astype(np.uint8) * 255
+        ans = cv2.imread('./img/2ans.png',0)
+        pred = cv2.imread('./img/2pred.png',0)
 
-        ans_ouput = cv2.connectedComponentsWithStats(ans0, 4)
-        ans = ans_ouput[1]
-        ans_areas = ans_ouput[2][:,cv2.CC_STAT_AREA]
-        print(ans_areas)
-
-        pred_ouput = cv2.connectedComponentsWithStats(pred0, 4)
-        pred = pred_ouput[1]
-        pred_areas = pred_ouput[2][:,cv2.CC_STAT_AREA]
-        print(pred_areas)
-
-        tp_tab = tp_table(intersection_table(ans,len(ans_areas), 
-                                             pred,len(pred_areas)))
-        tp, fp, fn, tp_yxs = confusion_stats(tp_tab)
-        print('f1score =', f1score(tp,fp,fn))
-
-        dice_obj = object_dice(tp_tab,tp_yxs,ans_areas,pred_areas)
+        f1, dice_obj = advanced_metric(ans,pred)
+        print('f1score =', f1)
         print('dice_obj =', dice_obj)
+
+
 if __name__ == '__main__':
     unittest.main()
-
