@@ -87,18 +87,38 @@ def confusion_stats(tp_table):
     tp_yxs = [(0,0)] + list(zip(ys,xs))
     return tp,fp,fn, tp_yxs
 
+def intersection_areas(tp_table, tp_yxs):
+    return list(map(lambda yx: tp_table[yx], tp_yxs))
+
 def f1score(tp, fp, fn):
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * precision * recall / (precision + recall)
 
 def area_ratios(areas, sum_areas):
-    ''' NOTE: areas[0] must be 0, and it will skip 0! '''
     return list(map(lambda area: area / sum_areas, areas))
 
-def dice_pixel(area_true, area_pred, intersections):
-    return intersection / (area_true + area_pred)
+def object_dice(tp_tab, tp_yxs, ans_areas, pred_areas):
+    '''
+    tp_tab: true positive area table, y=ans_label, x=pred_label
+    tp_yxs: true positive label pair list<ans_label,pred_label>
+    '''
+    intersections = intersection_areas(tp_tab, tp_yxs)
+    ans_areas[0] = 0
+    pred_areas[0] = 0
+    gamma = area_ratios(ans_areas,sum(ans_areas))
+    sigma = area_ratios(pred_areas,sum(pred_areas))
+    print('g',gamma)
+    print('s',sigma)
 
+    g_dice = 0 # ground truth dice 
+    s_dice = 0 # segmented dice
+    for i,(y,x) in enumerate(tp_yxs[1:],1):
+        dice = 2 * intersections[i] / (ans_areas[y] + pred_areas[x])
+        g_dice += gamma[y] * dice
+        s_dice += sigma[x] * dice
+    #print(g_dice, s_dice)
+    return 0.5 * (g_dice + s_dice)
 '''
 cv2.imshow('a',ans_component.astype(np.float32))
 cv2.imshow('p',pred_component.astype(np.float32))
