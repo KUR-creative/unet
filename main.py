@@ -36,6 +36,7 @@ def modulo_ceil(x, mod):
 
 def main(experiment_yml_path):
     with open(experiment_yml_path,'r') as f:
+        print(experiment_yml_path)
         settings = yaml.load(f)
     experiment_name,_ = os.path.splitext(os.path.basename(experiment_yml_path))
     print('->',experiment_name)

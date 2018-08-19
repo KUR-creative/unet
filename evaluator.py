@@ -14,6 +14,7 @@ import model
 import utils
 from utils import bgr_float32, load_imgs
 from utils import assert_exists, assert_not_exists
+from metric import advanced_metric
 
 def iou(y_true,y_pred,thr=0.5):
     y_true = (y_true.flatten() >= thr).astype(np.uint8)
@@ -23,7 +24,7 @@ def iou(y_true,y_pred,thr=0.5):
     prediction = cnfmat.sum(axis=0) # 
     ground_truth = cnfmat.sum(axis=1)
     union = ground_truth + prediction - intersection
-    return intersection / union.astype(np.float32)
+    return (intersection / union.astype(np.float32)).tolist()
 
 def modulo_padded(img, modulo=16):
     h,w = img.shape[:2]
@@ -38,6 +39,8 @@ from tensorflow.errors import ResourceExhaustedError
 def evaluate(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
+    f1_score_arr = []
+    dice_obj_arr = []
     for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
         org_h,org_w = inp.shape[:2]
 
@@ -59,13 +62,18 @@ def evaluate(segnet, inputs, answers, modulo=16):
                                   '''
             iou_score = iou(answer,segmap)
             iou_arr.append( np.asscalar(np.mean(iou_score)) )
+
+            f1_score, dice_obj = advanced_metric(answer,segmap)
+            f1_score_arr.append(f1_score)
+            dice_obj_arr.append(dice_obj)
+
         except ResourceExhaustedError:
             print(img_shape,'OOM error')
             # Now it just skip very big image, but you can implement OOM free code.
             # For instance, if OOM happen, divide image into 4 pieces, modulo_pad them,
             # predict 4 segmaps, and then merge them. And also save image shape that
             # caused OOM error, that would be used later.
-    return iou_arr, result_tuples
+    return {'ious':iou_arr, 'f1s':f1_score_arr, 'dice_objs':dice_obj_arr}, result_tuples
 def inference(segnet, inputs, modulo=16):
     outputs = []
     for inp in inputs:
@@ -83,18 +91,56 @@ def inference(segnet, inputs, modulo=16):
     return outputs
 
 def save_eval_summary(eval_summary_path,
-                      train_iou_arr, valid_iou_arr, test_iou_arr):
+                      train_metrics, valid_metrics, test_metrics):
+    train_iou_arr = train_metrics['ious']
+    train_f1_arr = train_metrics['f1s']
+    train_dice_arr = train_metrics['dice_objs']
+
+    valid_iou_arr = valid_metrics['ious']
+    valid_f1_arr = valid_metrics['f1s']
+    valid_dice_arr = valid_metrics['dice_objs']
+
+    test_iou_arr = test_metrics['ious']
+    test_f1_arr = test_metrics['f1s']
+    test_dice_arr = test_metrics['dice_objs']
+
     with open(eval_summary_path,'w') as f:
-        train_mean_iou = np.asscalar(np.mean(train_iou_arr))
-        valid_mean_iou = np.asscalar(np.mean(valid_iou_arr))
-        test_mean_iou = np.asscalar(np.mean(test_iou_arr))
+        train_mean_iou      = float(np.mean(train_iou_arr))
+        train_mean_f1_score = float(np.mean(train_f1_arr))
+        train_mean_dice_obj = float(np.mean(train_dice_arr))
+
+        valid_mean_iou      = float(np.mean(valid_iou_arr))
+        valid_mean_f1_score = float(np.mean(valid_f1_arr))
+        valid_mean_dice_obj = float(np.mean(valid_dice_arr))
+
+        test_mean_iou      = float(np.mean(test_iou_arr))
+        test_mean_f1_score = float(np.mean(test_f1_arr))
+        test_mean_dice_obj = float(np.mean(test_dice_arr))
+
         f.write(yaml.dump(dict( 
             train_iou_arr = train_iou_arr,
-            train_mean_iou = train_mean_iou,
+            train_f1_arr  = train_f1_arr, 
+            train_dice_arr= train_dice_arr,
+                                            
             valid_iou_arr = valid_iou_arr,
-            valid_mean_iou = valid_mean_iou,
-            test_iou_arr = test_iou_arr,
-            test_mean_iou = test_mean_iou
+            valid_f1_arr  = valid_f1_arr,
+            valid_dice_arr= valid_dice_arr,
+                                            
+            test_iou_arr  = test_iou_arr,
+            test_f1_arr   = test_f1_arr,
+            test_dice_arr = test_dice_arr,
+
+            train_mean_iou      = train_mean_iou,
+            train_mean_f1_score = train_mean_f1_score,
+            train_mean_dice_obj = train_mean_dice_obj,
+                                                       
+            valid_mean_iou      = valid_mean_iou,
+            valid_mean_f1_score = valid_mean_f1_score,
+            valid_mean_dice_obj = valid_mean_dice_obj,
+                                                       
+            test_mean_iou       = test_mean_iou,
+            test_mean_f1_score  = test_mean_f1_score,
+            test_mean_dice_obj  = test_mean_dice_obj
         )))#,
         print('------------ Mean IoUs ------------')
         print('train mean iou =',train_mean_iou)
@@ -157,16 +203,16 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
     #---- eval ----
     segnet = model.unet(model_path, (None,None,1), 
                         num_filters=num_filters, num_maxpool=num_maxpool)
-    train_iou_arr, train_result_tuples = evaluate(segnet, train_inputs, train_answers, modulo)
-    valid_iou_arr, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers, modulo)
-    test_iou_arr, test_result_tuples = evaluate(segnet, test_inputs, test_answers, modulo)
+    train_metrics, train_result_tuples = evaluate(segnet, train_inputs, train_answers, modulo)
+    valid_metrics, valid_result_tuples = evaluate(segnet, valid_inputs, valid_answers, modulo)
+    test_metrics, test_result_tuples = evaluate(segnet, test_inputs, test_answers, modulo)
     K.clear_session()
     print('Evaluation completed!')
 
     #---- save ----
     summary_path, train_path, valid_path, test_path = make_eval_directory(eval_result_dirpath,
                                                                           eval_summary_name)
-    save_eval_summary(summary_path, train_iou_arr, valid_iou_arr, test_iou_arr)
+    save_eval_summary(summary_path, train_metrics, valid_metrics, test_metrics)
     print('Evaluation summary is saved!')
 
     save_img_tuples(train_result_tuples, train_path)
@@ -187,8 +233,30 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
 import sys,pathlib
 from fp import pipe,cmap,cfilter
 if __name__ == '__main__':
-    '''
-    python evaluator.py segnet.h5 imgs_dir output_dir
+    benigh_74sep = './data/Benigh_74sep/'
+    benigh_noaug = './data/Benigh_74sep/eval_results/no_aug_benigh'
+    benigh_aug = './data/Benigh_74sep/eval_results/aug_benigh'
+
+    # benigh no augmentation
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_RandomNormal/benigh.h5'), './data/eval2/noaug/benigh_RandomNormal',  num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_glorot_normal/benigh.h5'),'./data/eval2/noaug/benigh_glorot_normal', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_he_normal/benigh.h5'),    './data/eval2/noaug/benigh_he_normal',     num_filters=64, num_maxpool=4, modulo=16)
+
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_cnum32_depth4/benigh.h5'),'./data/eval2/noaug/benigh_cnum32_depth4', num_filters=32, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_cnum32_depth5/benigh.h5'),'./data/eval2/noaug/benigh_cnum32_depth5', num_filters=32, num_maxpool=5, modulo=32)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_cnum64_depth4/benigh.h5'),'./data/eval2/noaug/benigh_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_noaug,'benigh_cnum64_depth5/benigh.h5'),'./data/eval2/noaug/benigh_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
+
+    # benigh augmentation
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_RandomNormal/benigh.h5'), './data/eval2/aug/benigh_RandomNormal',  num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_glorot_normal/benigh.h5'),'./data/eval2/aug/benigh_glorot_normal', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_he_normal/benigh.h5'),    './data/eval2/aug/benigh_he_normal',     num_filters=64, num_maxpool=4, modulo=16)
+
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_cnum32_depth4/benigh.h5'),'./data/eval2/aug/benigh_cnum32_depth4', num_filters=32, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_cnum32_depth5/benigh.h5'),'./data/eval2/aug/benigh_cnum32_depth5', num_filters=32, num_maxpool=5, modulo=32)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_cnum64_depth4/benigh.h5'),'./data/eval2/aug/benigh_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_cnum64_depth5/benigh.h5'),'./data/eval2/aug/benigh_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
+    #python evaluator.py segnet.h5 imgs_dir output_dir
     '''
     segnet_model_path = sys.argv[1]
     imgs_dir = sys.argv[2]
@@ -211,3 +279,4 @@ if __name__ == '__main__':
         segmap = (segmap.reshape(segmap.shape[:2]) * 255).astype(np.uint8)
         #cv2.imshow('segmap',segmap); cv2.waitKey(0)
         cv2.imwrite(new_path, segmap)
+    '''
