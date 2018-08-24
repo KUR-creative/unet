@@ -13,6 +13,8 @@ from imgaug import augmenters as iaa
 from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
 from keras import backend as K
+import keras
+
 
 def batch_gen(imgs, masks, batch_size, augmentater):
     assert len(imgs) == len(masks)
@@ -63,6 +65,7 @@ def main(experiment_yml_path):
     overlap_factor = settings.get('overlap_factor')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
+
     #--------------------------------------------------------------------
 
     #--------------------------------------------------------------------
@@ -145,11 +148,34 @@ def main(experiment_yml_path):
 
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
-                 input_size=(IMG_SIZE,IMG_SIZE,1),
+                 input_size=(None,None,1),
                  kernel_init=kernel_init,
                  num_filters=num_filters,
                  num_maxpool=num_maxpool,
                  lr=LEARNING_RATE)
+
+    modulo = 2**num_maxpool
+    class FullImgMetricsHistory(keras.callbacks.Callback):
+        def on_train_begin(self, logs={}):
+            self.train_ious = []
+            self.train_f1scores = []
+            self.train_dice_objs = []
+
+            self.valid_ious = []
+            self.valid_f1scores = []
+            self.valid_dice_objs = []
+
+        def on_epoch_end(self, epoch, logs={}):
+            train_metrics,_ = evaluator.evaluate(self.model, train_imgs, train_masks, modulo)
+            self.train_ious.append( float(np.mean(train_metrics['ious'])) )
+            self.train_f1scores.append( float(np.mean(train_metrics['f1s'])) )
+            self.train_dice_objs.append( float(np.mean(train_metrics['dice_objs'])) )
+
+            valid_metrics,_ = evaluator.evaluate(self.model, valid_imgs, valid_masks, modulo)
+            self.valid_ious.append( float(np.mean(valid_metrics['ious'])) )
+            self.valid_f1scores.append( float(np.mean(valid_metrics['f1s'])) )
+            self.valid_dice_objs.append( float(np.mean(valid_metrics['dice_objs'])) )
+    metrics_history = FullImgMetricsHistory()
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
@@ -158,7 +184,15 @@ def main(experiment_yml_path):
                                   steps_per_epoch=train_steps_per_epoch, 
                                   validation_steps=valid_steps_per_epoch,
                                   validation_data=valid_gen, 
-                                  callbacks=[model_checkpoint])
+                                  callbacks=[model_checkpoint, metrics_history])
+    '''
+    print('t ious ',metrics_history.train_ious)
+    print('t f1s  ',metrics_history.train_f1scores)
+    print('t dices',metrics_history.train_dice_objs)
+    print('v ious ',metrics_history.valid_ious)
+    print('v f1s  ',metrics_history.valid_f1scores)
+    print('v dices',metrics_history.valid_dice_objs)
+    '''
     train_time_str = train_timer.elapsed_time()
     #--------------------------------------------------------------------
 
@@ -188,16 +222,21 @@ def main(experiment_yml_path):
     #------------------- evaluation and save results --------------------
     with open(history_path,'w') as f:
         f.write(yaml.dump(dict(
-            loss = list(map(np.asscalar,history.history['loss'])),
-             acc = list(map(np.asscalar,history.history['mean_iou'])),
-        val_loss = list(map(np.asscalar,history.history['val_loss'])),
-         val_acc = list(map(np.asscalar,history.history['val_mean_iou'])),
-       test_loss = np.asscalar(test_metrics[0]),
-        test_acc = np.asscalar(test_metrics[1]),
-        train_time = train_time_str,
+                  loss = list(map(np.asscalar,history.history['loss'])),
+                   acc = list(map(np.asscalar,history.history['mean_iou'])),
+              val_loss = list(map(np.asscalar,history.history['val_loss'])),
+               val_acc = list(map(np.asscalar,history.history['val_mean_iou'])),
+             test_loss = np.asscalar(test_metrics[0]),
+              test_acc = np.asscalar(test_metrics[1]),
+            train_ious = metrics_history.train_ious,
+        train_f1scores = metrics_history.train_f1scores,
+       train_dice_objs = metrics_history.train_dice_objs,
+            valid_ious = metrics_history.valid_ious,
+        valid_f1scores = metrics_history.valid_f1scores,
+       valid_dice_objs = metrics_history.valid_dice_objs,
+            train_time = train_time_str,
         )))
 
-    modulo = 2**num_maxpool
     evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
                                    files_2b_copied=[history_path, experiment_yml_path],
                                    num_filters=num_filters, num_maxpool=num_maxpool, modulo=modulo)
