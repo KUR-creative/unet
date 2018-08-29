@@ -84,7 +84,7 @@ def main(experiment_yml_path):
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
     test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
 
-    if overlap_factor is None: overlap_factor = 2
+    if overlap_factor is None: overlap_factor = 1 #2
     #calc mean h,w of dataset
     tr_h, tr_w = sum(map(lambda img: np.array(img.shape[:2]),train_imgs)) / len(train_imgs)
     vl_h, vl_w = sum(map(lambda img: np.array(img.shape[:2]),valid_imgs)) / len(valid_imgs)
