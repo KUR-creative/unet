@@ -233,7 +233,38 @@ def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
 import sys,pathlib
 from fp import pipe,cmap,cfilter
 if __name__ == '__main__':
-    benigh_74sep = './data/Benigh_74sep/'
+    benigh_data = './data/Benigh_74sep/'
+    malignant_data = './data/Malignant_91sep/'
+
+    eval_and_save_result(benigh_data, './mixed_models/mixed_cnum32_depth4.h5',        'mixed_benigh/mixed_cnum32_depth4', num_filters=32, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_cnum32_depth5.h5',        'mixed_benigh/mixed_cnum32_depth5', num_filters=32, num_maxpool=5, modulo=32)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_cnum64_depth4.h5',        'mixed_benigh/mixed_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_cnum64_depth5.h5',        'mixed_benigh/mixed_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
+
+    eval_and_save_result(benigh_data, './mixed_models/mixed_xavier_cnum32_depth4.h5', 'mixed_benigh/mixed_xavier_cnum32_depth4', num_filters=32, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_xavier_cnum32_depth5.h5', 'mixed_benigh/mixed_xavier_cnum32_depth5', num_filters=32, num_maxpool=5, modulo=32)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_xavier_cnum64_depth4.h5', 'mixed_benigh/mixed_xavier_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_xavier_cnum64_depth5.h5', 'mixed_benigh/mixed_xavier_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
+
+    eval_and_save_result(benigh_data, './mixed_models/mixed_RandomNormal.h5',         'mixed_benigh/mixed_RandomNormal.', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_glorot_normal.h5',        'mixed_benigh/mixed_glorot_normal', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(benigh_data, './mixed_models/mixed_he_normal.h5',            'mixed_benigh/mixed_he_normal', num_filters=64, num_maxpool=4, modulo=16)
+
+
+    eval_and_save_result(malignant_data, './mixed_models/mixed_cnum32_depth4.h5',        'mixed_malignant/mixed_cnum32_depth4', num_filters=32, num_maxpool=4, modulo=16)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_cnum32_depth5.h5',        'mixed_malignant/mixed_cnum32_depth5', num_filters=32, num_maxpool=5, modulo=32)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_cnum64_depth4.h5',        'mixed_malignant/mixed_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_cnum64_depth5.h5',        'mixed_malignant/mixed_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
+
+    eval_and_save_result(malignant_data, './mixed_models/mixed_xavier_cnum32_depth4.h5', 'mixed_malignant/mixed_xavier_cnum32_depth4', num_filters=32, num_maxpool=4, modulo=16)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_xavier_cnum32_depth5.h5', 'mixed_malignant/mixed_xavier_cnum32_depth5', num_filters=32, num_maxpool=5, modulo=32)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_xavier_cnum64_depth4.h5', 'mixed_malignant/mixed_xavier_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_xavier_cnum64_depth5.h5', 'mixed_malignant/mixed_xavier_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
+
+    eval_and_save_result(malignant_data, './mixed_models/mixed_RandomNormal.h5',         'mixed_malignant/mixed_RandomNormal', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_glorot_normal.h5',        'mixed_malignant/mixed_glorot_normal', num_filters=64, num_maxpool=4, modulo=16)
+    eval_and_save_result(malignant_data, './mixed_models/mixed_he_normal.h5',            'mixed_malignant/mixed_he_normal', num_filters=64, num_maxpool=4, modulo=16)
+    '''
     benigh_noaug = './data/Benigh_74sep/eval_results/no_aug_benigh'
     benigh_aug = './data/Benigh_74sep/eval_results/aug_benigh'
 
@@ -257,7 +288,6 @@ if __name__ == '__main__':
     eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_cnum64_depth4/benigh.h5'),'./data/eval2/aug/benigh_cnum64_depth4', num_filters=64, num_maxpool=4, modulo=16)
     eval_and_save_result(benigh_74sep, os.path.join(benigh_aug,'benigh_cnum64_depth5/benigh.h5'),'./data/eval2/aug/benigh_cnum64_depth5', num_filters=64, num_maxpool=5, modulo=32)
     #python evaluator.py segnet.h5 imgs_dir output_dir
-    '''
     segnet_model_path = sys.argv[1]
     imgs_dir = sys.argv[2]
     output_dir = sys.argv[3]
