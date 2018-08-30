@@ -39,9 +39,11 @@ def main(experiment_yml_path):
         print(experiment_yml_path)
         settings = yaml.load(f)
     experiment_name,_ = os.path.splitext(os.path.basename(experiment_yml_path))
+    print('==========================================')
     print('->',experiment_name)
     for k,v in settings.items():
         print(k,'=',v)
+    print('==========================================')
     #----------------------- experiment settings ------------------------
     IMG_SIZE = settings['IMG_SIZE']
     BATCH_SIZE = settings['BATCH_SIZE']

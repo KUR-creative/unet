@@ -35,7 +35,7 @@ def modulo_padded(img, modulo=16):
     elif len(img.shape) == 2:
         return np.pad(img, [(0,h_padding),(0,w_padding)], mode='reflect')
 
-from tensorflow.errors import ResourceExhaustedError
+#from tensorflow.errors import ResourceExhaustedError
 def evaluate(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
@@ -67,7 +67,7 @@ def evaluate(segnet, inputs, answers, modulo=16):
             f1_score_arr.append(f1_score)
             dice_obj_arr.append(dice_obj)
 
-        except ResourceExhaustedError:
+        except: #ResourceExhaustedError:
             print(img_shape,'OOM error')
             # Now it just skip very big image, but you can implement OOM free code.
             # For instance, if OOM happen, divide image into 4 pieces, modulo_pad them,
