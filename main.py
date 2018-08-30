@@ -63,6 +63,9 @@ def main(experiment_yml_path):
     num_maxpool = settings.get('num_maxpool')
     num_filters = settings.get('num_filters')
     overlap_factor = settings.get('overlap_factor')
+    mixed_model = settings.get('mixed_model')
+    if mixed_model == None:
+        mixed_model = False
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -200,9 +203,22 @@ def main(experiment_yml_path):
         )))
 
     modulo = 2**num_maxpool
-    evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
-                                   files_2b_copied=[history_path, experiment_yml_path],
-                                   num_filters=num_filters, num_maxpool=num_maxpool, modulo=modulo)
+    if mixed_model: 
+        evaluator.eval_and_save_result(
+            './data/Benigh_74sep/', 
+            save_model_path, os.path.join(eval_result_dirpath,'benign_eval'),
+            files_2b_copied=[history_path, experiment_yml_path],
+            num_filters=num_filters, num_maxpool=num_maxpool, modulo=modulo)
+        evaluator.eval_and_save_result(
+            './data/Malignant_91sep/', 
+            save_model_path, os.path.join(eval_result_dirpath,'malignant_eval'),
+            files_2b_copied=[history_path, experiment_yml_path],
+            num_filters=num_filters, num_maxpool=num_maxpool, modulo=modulo)
+    else:
+        evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
+                                       files_2b_copied=[history_path, experiment_yml_path],
+                                       num_filters=num_filters, num_maxpool=num_maxpool, modulo=modulo)
+
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
