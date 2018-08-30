@@ -224,6 +224,9 @@ def main(experiment_yml_path):
 if __name__ == '__main__':
     with open('experiment_log','w') as log:
         for experiment_path in human_sorted(file_paths(sys.argv[1])):
+            if os.path.basename(experiment_path)[0] == '.':
+                print(experiment_path)
+                continue
             try:
                 timer = ElapsedTimer(experiment_path)
                 main(experiment_path)
