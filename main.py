@@ -143,7 +143,7 @@ def main(experiment_yml_path):
     if kernel_init is None: kernel_init = 'he_normal'
     if num_maxpool is None: num_maxpool = 4 
     if num_filters is None: num_filters = 64
-    if filter_vec is None: fiter_vec = (3,3,1)
+    if filter_vec is None: filter_vec = (3,3,1)
 
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
