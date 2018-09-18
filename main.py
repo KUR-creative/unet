@@ -61,6 +61,7 @@ def main(experiment_yml_path):
     num_maxpool = settings.get('num_maxpool')
     num_filters = settings.get('num_filters')
     overlap_factor = settings.get('overlap_factor')
+    filter_vec = settings.get('filter_vec')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -116,7 +117,7 @@ def main(experiment_yml_path):
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
                 crop_before_augs=[
                   iaa.Affine(
-                    rotate=(-3,3), shear=(-3,3), 
+                    #rotate=(-3,3), shear=(-3,3), 
                     scale={'x':(0.8,1.5), 'y':(0.8,1.5)},
                     mode='reflect'),
                 ]
@@ -142,13 +143,13 @@ def main(experiment_yml_path):
     if kernel_init is None: kernel_init = 'he_normal'
     if num_maxpool is None: num_maxpool = 4 
     if num_filters is None: num_filters = 64
+    if filter_vec is None: fiter_vec = (3,3,1)
 
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
                  kernel_init=kernel_init,
-                 num_filters=num_filters,
-                 num_maxpool=num_maxpool,
+                 num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
                  lr=LEARNING_RATE)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',

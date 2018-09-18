@@ -158,8 +158,8 @@ def up_block(from_horizon, upward, cnum, kernel_init, filter_vec=(3,3,1)):
     return merged
 
 def unet(pretrained_weights = None,input_size = (256,256,1),
-         kernel_init='he_normal', num_filters=64,
-         num_maxpool = 4,
+         kernel_init='he_normal', 
+         num_filters=64, num_maxpool = 4, filter_vec=(3,3,1),
          lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5):
     '''
     depth = 4
@@ -176,10 +176,10 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
 
     down_convs = [None] * depth
     for i in range(depth): 
-        down_convs[i], x = down_block(x, 2**i * cnum, kernel_init)
-    x = down_block(x, 2**depth * cnum, kernel_init, maxpool2x=False)    
+        down_convs[i], x = down_block(x, 2**i * cnum, kernel_init, filter_vec=filter_vec)
+    x = down_block(x, 2**depth * cnum, kernel_init, filter_vec=filter_vec, maxpool2x=False)    
     for i in reversed(range(depth)): 
-        x = up_block(down_convs[i], x, 2**i * cnum, kernel_init)
+        x = up_block(down_convs[i], x, 2**i * cnum, kernel_init, filter_vec=filter_vec)
 
     out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(x)
 
