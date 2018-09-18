@@ -35,7 +35,71 @@ def modulo_padded(img, modulo=16):
     elif len(img.shape) == 2:
         return np.pad(img, [(0,h_padding),(0,w_padding)], mode='reflect')
 
+def segment_or_oom(segnet, inp, modulo=16):
+    ''' If image is too big, return None '''
+    org_h,org_w = inp.shape[:2]
+
+    img = modulo_padded(inp, modulo) 
+    img_shape = img.shape #NOTE grayscale!
+    img_bat = img.reshape((1,) + img_shape) # size 1 batch
+    try:
+        segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
+        segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w)) # remove padding
+        return segmap
+    except: # ResourceExhaustedError:
+        print(img_shape,'OOM error: image is too big. (in segnet)')
+        return None
+
+size_limit = 755564# lab-machine
+def segment(segnet, inp, modulo=16):
+    ''' oom-free segmentation '''
+    global size_limit
+    
+    h,w = inp.shape[:2]
+    result = None
+    if h*w < size_limit:
+        result = segment_or_oom(segnet, inp, modulo)
+        if result is None: # size_limit: Ok but OOM occur!
+            size_limit = h*w
+            print('segmentation size_limit =', size_limit, 'updated!')
+    else:
+        print('segmentation size_limit exceed! img_size =', 
+              h*w, '>', size_limit, '= size_limit')
+
+    if result is None: # exceed size_limit or OOM
+        if h > w:
+            upper = segment(segnet, inp[:h//2,:], modulo) 
+            downer= segment(segnet, inp[h//2:,:], modulo)
+            return np.concatenate((upper,downer), axis=0)
+        else:
+            left = segment(segnet, inp[:,:w//2], modulo)
+            right= segment(segnet, inp[:,w//2:], modulo)
+            return np.concatenate((left,right), axis=1)
+    else:
+        return result # image inpainted successfully!
+
 from tensorflow.errors import ResourceExhaustedError
+def evaluate_manga(segnet, inputs, answers, modulo=16):
+    result_tuples = []
+    iou_arr = []
+    for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
+        org_h,org_w = inp.shape[:2]
+
+        img = modulo_padded(inp,modulo)
+        img_shape = img.shape #NOTE grayscale!
+        img_bat = img.reshape((1,) + img_shape) # size 1 batch
+
+        segmap = segment(segnet, img_bat, modulo=modulo)
+        segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
+
+        result_tuples.append( (inp.reshape([org_h,org_w]), 
+                               answer.reshape([org_h,org_w]),  
+                               segmap.reshape([org_h,org_w])) )
+        iou_score = iou(answer,segmap)
+        iou_arr.append( np.asscalar(np.mean(iou_score)) )
+
+    return {'ious':iou_arr}, result_tuples
+
 def evaluate(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
@@ -89,6 +153,31 @@ def inference(segnet, inputs, modulo=16):
         except ResourceExhaustedError:
             print(img_shape,'OOM error: image is too big.')
     return outputs
+
+def save_manga_eval_summary(eval_summary_path,
+                      train_metrics, valid_metrics, test_metrics):
+    train_iou_arr = train_metrics['ious']
+    valid_iou_arr = valid_metrics['ious']
+    test_iou_arr = test_metrics['ious']
+
+    with open(eval_summary_path,'w') as f:
+        train_mean_iou = float(np.mean(train_iou_arr))
+        valid_mean_iou = float(np.mean(valid_iou_arr))
+        test_mean_iou  = float(np.mean(test_iou_arr))
+
+        f.write(yaml.dump(dict( 
+            train_iou_arr = train_iou_arr,
+            valid_iou_arr = valid_iou_arr,
+            test_iou_arr  = test_iou_arr,
+            train_mean_iou = train_mean_iou,
+            valid_mean_iou = valid_mean_iou,
+            test_mean_iou  = test_mean_iou,
+        )))#,
+        print('------------ Mean IoUs ------------')
+        print('train mean iou =',train_mean_iou)
+        print('valid mean iou =',valid_mean_iou)
+        print(' test mean iou =', test_mean_iou)
+        print('-----------------------------------')
 
 def save_eval_summary(eval_summary_path,
                       train_metrics, valid_metrics, test_metrics):
@@ -169,6 +258,68 @@ def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
     os.makedirs(eval_valid_dirpath, exist_ok=True)
     os.makedirs(eval_test_dirpath, exist_ok=True)
     return eval_summary_path, eval_train_dirpath, eval_valid_dirpath, eval_test_dirpath
+
+def eval_and_save_result2(dataset_dir, model_path, eval_result_dirpath,
+                         eval_summary_name='eval_summary.yml',
+                         files_2b_copied=None,
+                         num_filters=64,num_maxpool=4,
+                         modulo=16):
+    '''
+    for manga!
+    '''
+    #---- load ----
+    train_dir = os.path.join(dataset_dir,'train')
+    valid_dir = os.path.join(dataset_dir,'valid')
+    test_dir = os.path.join(dataset_dir,'test')
+    train_img_dir = os.path.join(train_dir,'image')
+    train_label_dir = os.path.join(train_dir,'label')
+    valid_img_dir = os.path.join(valid_dir,'image')
+    valid_label_dir = os.path.join(valid_dir,'label')
+    test_img_dir = os.path.join(test_dir, 'image')
+    test_label_dir = os.path.join(test_dir, 'label')
+    assert_exists(train_img_dir)
+    assert_exists(train_label_dir)
+    assert_exists(valid_img_dir)
+    assert_exists(valid_label_dir)
+    assert_exists(test_img_dir)
+    assert_exists(test_label_dir)
+    train_inputs = list(load_imgs(train_img_dir))
+    train_answers = list(load_imgs(train_label_dir))
+    valid_inputs = list(load_imgs(valid_img_dir))
+    valid_answers = list(load_imgs(valid_label_dir))
+    test_inputs = list(load_imgs(test_img_dir))
+    test_answers = list(load_imgs(test_label_dir))
+
+    #---- eval ----
+    segnet = model.unet(model_path, (None,None,1), 
+                        num_filters=num_filters, num_maxpool=num_maxpool,
+                        filter_vec=filter_vec)
+    train_metrics, train_result_tuples = evaluate_manga(segnet, train_inputs, train_answers, modulo)
+    valid_metrics, valid_result_tuples = evaluate_manga(segnet, valid_inputs, valid_answers, modulo)
+    test_metrics, test_result_tuples = evaluate_manga(segnet, test_inputs, test_answers, modulo)
+    K.clear_session()
+    print('Evaluation completed!')
+
+    #---- save ----
+    summary_path, train_path, valid_path, test_path = make_eval_directory(eval_result_dirpath,
+                                                                          eval_summary_name)
+    save_manga_eval_summary(summary_path, train_metrics, valid_metrics, test_metrics)
+    print('Evaluation summary is saved!')
+
+    save_img_tuples(train_result_tuples, train_path)
+    save_img_tuples(valid_result_tuples, valid_path)
+    save_img_tuples(test_result_tuples, test_path)
+    print('Evaluation result images are saved!')
+
+    if files_2b_copied is None:
+        files_2b_copied = [model_path]
+    else:
+        files_2b_copied.append(model_path)
+
+    for file_path in files_2b_copied:
+        file_name = os.path.basename(file_path)
+        shutil.copyfile(file_path, os.path.join(eval_result_dirpath, file_name))
+        print("file '%s' is copyed into '%s'" % (file_name,eval_result_dirpath))
 
 def eval_and_save_result(dataset_dir, model_path, eval_result_dirpath,
                          eval_summary_name='eval_summary.yml',

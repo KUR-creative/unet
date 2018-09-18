@@ -113,7 +113,7 @@ def main(experiment_yml_path):
                   iaa.ElasticTransformation(alpha=(100,200),sigma=14,mode='reflect'),
                 ]
               )
-    elif data_augmentation == 'manga_gb':
+    elif data_augmentation == 'manga':
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
                 crop_before_augs=[
                   iaa.Affine(
@@ -199,9 +199,10 @@ def main(experiment_yml_path):
         )))
 
     modulo = 2**num_maxpool
-    evaluator.eval_and_save_result(dataset_dir, save_model_path, eval_result_dirpath,
-                                   files_2b_copied=[history_path, experiment_yml_path],
-                                   num_filters=num_filters, num_maxpool=num_maxpool, modulo=modulo)
+    evaluator.eval_and_save_result2(dataset_dir, save_model_path, eval_result_dirpath,
+                                    files_2b_copied=[history_path, experiment_yml_path],
+                                    num_filters=num_filters, num_maxpool=num_maxpool, 
+                                    filter_vec=filter_vec,modulo=modulo)
     #--------------------------------------------------------------------
 
 if __name__ == '__main__':
