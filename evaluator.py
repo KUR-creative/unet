@@ -50,7 +50,7 @@ def segment_or_oom(segnet, inp, modulo=16):
         print(img_shape,'OOM error: image is too big. (in segnet)')
         return None
 
-size_limit = 755564# lab-machine
+size_limit = 4000000 # dev-machine
 def segment(segnet, inp, modulo=16):
     ''' oom-free segmentation '''
     global size_limit
@@ -83,18 +83,25 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
     for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
-        org_h,org_w = inp.shape[:2]
+        if inp.shape <= answer.shape:
+            org_h,org_w = inp.shape[:2]
+        else:
+            org_h,org_w = answer.shape[:2]
 
         img = modulo_padded(inp,modulo)
-        img_shape = img.shape #NOTE grayscale!
-        img_bat = img.reshape((1,) + img_shape) # size 1 batch
+        #img_shape = img.shape #NOTE grayscale!
+        #img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
-        segmap = segment(segnet, img_bat, modulo=modulo)
-        segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
+        segmap = segment(segnet, img, modulo=modulo) # not batch, just use img!
+        #print(inp.shape); print(segmap.shape); print(answer.shape);
+        #segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))
 
-        result_tuples.append( (inp.reshape([org_h,org_w]), 
-                               answer.reshape([org_h,org_w]),  
-                               segmap.reshape([org_h,org_w])) )
+        print(inp.shape); print(segmap.shape); print(answer.shape);
+        inp = inp[:org_h,:org_w].reshape((org_h,org_w))
+        answer = answer[:org_h,:org_w].reshape((org_h,org_w))  
+        segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))
+
+        result_tuples.append( (inp,answer,segmap) )
         iou_score = iou(answer,segmap)
         iou_arr.append( np.asscalar(np.mean(iou_score)) )
 
@@ -262,7 +269,7 @@ def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
 def eval_and_save_result2(dataset_dir, model_path, eval_result_dirpath,
                          eval_summary_name='eval_summary.yml',
                          files_2b_copied=None,
-                         num_filters=64,num_maxpool=4,
+                         num_filters=64,num_maxpool=4, filter_vec=(3,3,1),
                          modulo=16):
     '''
     for manga!

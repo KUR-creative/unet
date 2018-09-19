@@ -132,8 +132,8 @@ def main(experiment_yml_path):
     valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
     #--------------------------------------------------------------------
-    '''
     # DEBUG
+    '''
     for ims,mas in my_gen:
         for im,ma in zip(ims,mas):
             cv2.imshow('i',im)
@@ -144,6 +144,7 @@ def main(experiment_yml_path):
     if num_maxpool is None: num_maxpool = 4 
     if num_filters is None: num_filters = 64
     if filter_vec is None: filter_vec = (3,3,1)
+    print('filter_vec = ', filter_vec)
 
     LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
