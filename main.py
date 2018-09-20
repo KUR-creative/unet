@@ -60,7 +60,7 @@ def main(experiment_yml_path):
     kernel_init = settings.get('kernel_init')
     num_maxpool = settings.get('num_maxpool')
     num_filters = settings.get('num_filters')
-    overlap_factor = settings.get('overlap_factor')
+    num_sample = settings.get('num_sample')
     filter_vec = settings.get('filter_vec')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
@@ -85,15 +85,15 @@ def main(experiment_yml_path):
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
     test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
 
-    if overlap_factor is None: overlap_factor = 1 #2
+    if num_sample is None: num_sample = 4 #2
     #calc mean h,w of dataset
     tr_h, tr_w = sum(map(lambda img: np.array(img.shape[:2]),train_imgs)) / len(train_imgs)
     vl_h, vl_w = sum(map(lambda img: np.array(img.shape[:2]),valid_imgs)) / len(valid_imgs)
     te_h, te_w = sum(map(lambda img: np.array(img.shape[:2]),test_imgs))  / len(test_imgs)
     #print(tr_h,tr_w, '|', vl_h,vl_w, '|', te_h,te_w)
-    train_num_sample = int((tr_h/IMG_SIZE) * (tr_w/IMG_SIZE) * overlap_factor)
-    valid_num_sample = int((vl_h/IMG_SIZE) * (vl_w/IMG_SIZE) * overlap_factor)
-    test_num_sample  = int((te_h/IMG_SIZE) * (te_w/IMG_SIZE) * overlap_factor)
+    train_num_sample = num_sample #1 # int((tr_h/IMG_SIZE) * (tr_w/IMG_SIZE) * overlap_factor)
+    valid_num_sample = num_sample #1 # int((vl_h/IMG_SIZE) * (vl_w/IMG_SIZE) * overlap_factor)
+    test_num_sample  = num_sample #1 # int((te_h/IMG_SIZE) * (te_w/IMG_SIZE) * overlap_factor)
     #print(train_num_sample,valid_num_sample,test_num_sample)
     train_steps_per_epoch = modulo_ceil(len(train_imgs),BATCH_SIZE) // BATCH_SIZE * train_num_sample
     valid_steps_per_epoch = modulo_ceil(len(valid_imgs),BATCH_SIZE) // BATCH_SIZE * valid_num_sample
@@ -132,8 +132,8 @@ def main(experiment_yml_path):
     valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
     #--------------------------------------------------------------------
-    # DEBUG
     '''
+    # DEBUG
     for ims,mas in my_gen:
         for im,ma in zip(ims,mas):
             cv2.imshow('i',im)
