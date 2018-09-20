@@ -256,7 +256,7 @@ def save_img_tuples(result_tuples, result_dir):
 def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
                         train_dir='train',valid_dir='valid',test_dir='test'):
     ''' TODO: input = dictionary that express directory structure. return paths. '''
-    assert_not_exists(eval_dirpath)
+    #assert_not_exists(eval_dirpath)
     eval_summary_path = os.path.join(eval_dirpath, eval_summary_name)
     eval_train_dirpath = os.path.join(eval_dirpath, train_dir)
     eval_valid_dirpath = os.path.join(eval_dirpath, valid_dir)
