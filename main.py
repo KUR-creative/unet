@@ -117,7 +117,7 @@ def main(experiment_yml_path):
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
                 crop_before_augs=[
                   iaa.Affine(
-                    #rotate=(-3,3), shear=(-3,3), 
+                    rotate=(-3,3), shear=(-3,3), 
                     scale={'x':(0.8,1.5), 'y':(0.8,1.5)},
                     mode='reflect'),
                 ]
