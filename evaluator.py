@@ -24,7 +24,7 @@ def iou(y_true,y_pred,thr=0.5):
     prediction = cnfmat.sum(axis=0) # 
     ground_truth = cnfmat.sum(axis=1)
     union = ground_truth + prediction - intersection
-    return (intersection / union.astype(np.float32)).tolist()
+    return ((intersection + 0.001) / (union.astype(np.float32) + 0.001)).tolist()
 
 def modulo_padded(img, modulo=16):
     h,w = img.shape[:2]
