@@ -37,31 +37,31 @@ def modulo_ceil(x, mod):
 def main(experiment_yml_path):
     with open(experiment_yml_path,'r') as f:
         print(experiment_yml_path)
-        settings = yaml.load(f)
+        config = yaml.load(f)
     experiment_name,_ = os.path.splitext(os.path.basename(experiment_yml_path))
     print('->',experiment_name)
-    for k,v in settings.items():
+    for k,v in config.items():
         print(k,'=',v)
-    #----------------------- experiment settings ------------------------
-    IMG_SIZE = settings['IMG_SIZE']
-    BATCH_SIZE = settings['BATCH_SIZE']
-    NUM_EPOCHS = settings['NUM_EPOCHS']
+    #----------------------- experiment config ------------------------
+    IMG_SIZE = config['IMG_SIZE']
+    BATCH_SIZE = config['BATCH_SIZE']
+    NUM_EPOCHS = config['NUM_EPOCHS']
 
-    data_augmentation = settings['data_augmentation'] # string
+    data_augmentation = config['data_augmentation'] # string
 
-    dataset_dir = settings['dataset_dir']
-    save_model_path = settings['save_model_path']## NOTE
-    history_path = settings['history_path']## NOTE
+    dataset_dir = config['dataset_dir']
+    save_model_path = config['save_model_path']## NOTE
+    history_path = config['history_path']## NOTE
 
-    eval_result_dirpath = os.path.join(settings['eval_result_parent_dir'], 
+    eval_result_dirpath = os.path.join(config['eval_result_parent_dir'], 
                                        experiment_name)
-    # optional settings
-    sqr_crop_dataset = settings.get('sqr_crop_dataset') 
-    kernel_init = settings.get('kernel_init')
-    num_maxpool = settings.get('num_maxpool')
-    num_filters = settings.get('num_filters')
-    num_sample = settings.get('num_sample')
-    filter_vec = settings.get('filter_vec')
+    # optional config
+    kernel_init = config.get('kernel_init')
+    num_maxpool = config.get('num_maxpool')
+    num_filters = config.get('num_filters')
+    num_sample = config.get('num_sample')
+    filter_vec = config.get('filter_vec')
+    dset_type = config.get('dset_type')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
