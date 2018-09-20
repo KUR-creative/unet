@@ -93,10 +93,6 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         #img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
         segmap = segment(segnet, img, modulo=modulo) # not batch, just use img!
-        #print(inp.shape); print(segmap.shape); print(answer.shape);
-        #segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))
-
-        print(inp.shape); print(segmap.shape); print(answer.shape);
         inp = inp[:org_h,:org_w].reshape((org_h,org_w))
         answer = answer[:org_h,:org_w].reshape((org_h,org_w))  
         segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))

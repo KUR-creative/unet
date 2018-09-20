@@ -7,6 +7,7 @@ def augmenter(batch_size=4, crop_size=256, num_channels=3,
     size = crop_size
     n_ch = num_channels
     def func_images(images, random_state, parents, hooks):
+        """ random cropping """
         ret_imgs = np.empty((n_img,size,size,n_ch))
         for idx,img in enumerate(images):
             h,w,c = img.shape
