@@ -8,7 +8,7 @@ import skimage.transform as trans
 import cv2
 from skimage.viewer import ImageViewer
 from itertools import cycle, islice
-from data_gen import augmenter
+from data_gen import augmenter, rgb2rgbk, rgbk2rgb
 from imgaug import augmenters as iaa
 from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
@@ -16,49 +16,6 @@ from keras import backend as K
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 
-def rgb2rgbk(rgb_img):
-    ''' 
-    [arg]
-    rgb_img.shape = (n,h,w,3) 
-    4 class: 
-      r: 1 0 0
-      g: 0 1 0
-      b: 0 0 1
-      k: 0 0 0
-     [return]
-    rgbk_img.shape = (n,h,w,4)
-      r: 1 0 0 0
-      g: 0 1 0 0
-      b: 0 0 1 0
-      k: 0 0 0 1
-    '''
-    #assert len(rgb_img.shape) == 4
-    #assert len(rgb_img.shape == 4
-    nhw1 = rgb_img.shape[:-1] + (1,)
-    k = np.logical_not(np.sum(rgb_img, axis=-1)) \
-          .astype(rgb_img.dtype) \
-          .reshape(nhw1)
-    rgbk_img = np.concatenate([rgb_img,k], axis=-1)
-    return rgbk_img
-
-def rgbk2rgb(rgbk_img):
-    ''' 
-    [arg]
-    rgbk_img.shape = (n,h,w,4)
-      r: 1 0 0 0
-      g: 0 1 0 0
-      b: 0 0 1 0
-      k: 0 0 0 1
-     [return]
-    rgb_img.shape = (n,h,w,3) 
-    4 class: 
-      r: 1 0 0
-      g: 0 1 0
-      b: 0 0 1
-      k: 0 0 0
-    '''
-    rgb_img = rgbk_img[:,:,:,:3]
-    return rgb_img
 
 def weight01(imgs):
     num_all,num0,num1 = 0,0,0
@@ -72,7 +29,8 @@ def weight01(imgs):
     return weight0, weight1
 
 def batch_gen(imgs, masks, batch_size, 
-              both_aug=None, img_aug=None, mask_aug=None):
+              both_aug=None, img_aug=None, mask_aug=None,
+              num_classes=1):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
@@ -80,6 +38,7 @@ def batch_gen(imgs, masks, batch_size,
         img_batch = list(islice(img_flow,batch_size))
         mask_batch = list(islice(mask_flow,batch_size))
 
+        #print(img_batch)
         if both_aug:
             aug_det = both_aug.to_deterministic()
             img_batch = aug_det.augment_images(img_batch)
@@ -93,6 +52,8 @@ def batch_gen(imgs, masks, batch_size,
         if mask_aug:
             mask_batch = mask_aug.augment_images(mask_batch)
 
+        if num_classes == 4:
+            mask_batch = [rgb2rgbk(mask) for mask in mask_batch]
         yield img_batch, mask_batch
 
 def modulo_ceil(x, mod):
@@ -127,6 +88,7 @@ def main(experiment_yml_path):
     num_sample = config.get('num_sample')
     filter_vec = config.get('filter_vec')
     sqr_crop_dataset = config.get('sqr_crop_dataset')
+    num_classes = config.get('num_classes')
 
     loss = config.get('loss')
     optimizer = config.get('optimizer')
@@ -148,11 +110,11 @@ def main(experiment_yml_path):
 
     #-------------------- ready to generate batch -----------------------
     train_imgs = list(load_imgs(os.path.join(train_dir,'image')))
-    train_masks =list(load_imgs(os.path.join(train_dir,'label')))
+    train_masks =list(load_imgs(os.path.join(train_dir,'label'), cv2.IMREAD_COLOR))
     valid_imgs = list(load_imgs(os.path.join(valid_dir,'image')))
-    valid_masks =list(load_imgs(os.path.join(valid_dir,'label')))
+    valid_masks =list(load_imgs(os.path.join(valid_dir,'label'), cv2.IMREAD_COLOR))
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
-    test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
+    test_masks = list(load_imgs(os.path.join(test_dir, 'label'), cv2.IMREAD_COLOR))
 
     w0,w1 = weight01(train_masks + valid_masks + test_masks)
     print('weight0 = %f, weight1 = %f' % (w0,w1))
@@ -174,6 +136,7 @@ def main(experiment_yml_path):
     print('# valid images =', len(valid_imgs), '| valid steps/epoch =', valid_steps_per_epoch)
     print('#  test images =', len(test_imgs),  '|  test steps/epoch =', test_steps_per_epoch)
 
+    aug,img_aug,mask_aug = None,None,None
     if data_augmentation == 'bioseg':
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
                 crop_before_augs=[
@@ -228,16 +191,20 @@ def main(experiment_yml_path):
     if sqr_crop_dataset:
         aug = None
 
-    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug, img_aug)
-    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug, img_aug)
-    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug, img_aug)
+    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug, img_aug, num_classes=4)
+    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug, img_aug, num_classes=4)
+    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug, img_aug, num_classes=4)
     #--------------------------------------------------------------------
     '''
     # DEBUG
     for ims,mas in my_gen:
         for im,ma in zip(ims,mas):
             cv2.imshow('i',im)
-            cv2.imshow('m',ma); cv2.waitKey(0)
+            if num_classes == 4:
+                print(ma.shape)
+                cv2.imshow('m',rgbk2rgb(ma)); cv2.waitKey(0)
+            else:
+                cv2.imshow('m',ma); cv2.waitKey(0)
     '''
     #---------------------------- train model ---------------------------
     if kernel_init is None: kernel_init = 'he_normal'

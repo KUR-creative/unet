@@ -5,9 +5,10 @@ def augmenter(batch_size=4, crop_size=256, num_channels=3,
               crop_before_augs=(), crop_after_augs=()):
     n_img = batch_size
     size = crop_size
-    n_ch = num_channels
+    #n_ch = num_channels
     def func_images(images, random_state, parents, hooks):
         """ random cropping """
+        _,_,n_ch = images[0].shape
         ret_imgs = np.empty((n_img,size,size,n_ch))
         for idx,img in enumerate(images):
             h,w,c = img.shape
@@ -31,6 +32,52 @@ def augmenter(batch_size=4, crop_size=256, num_channels=3,
     )
     print(aug_list)
     return iaa.Sequential(aug_list)
+
+def rgb2rgbk(rgb_img):
+    ''' 
+    [arg]
+    rgb_img.shape = (n,h,w,3) 
+    4 class: 
+      r: 1 0 0
+      g: 0 1 0
+      b: 0 0 1
+      k: 0 0 0
+     [return]
+    rgbk_img.shape = (n,h,w,4)
+      r: 1 0 0 0
+      g: 0 1 0 0
+      b: 0 0 1 0
+      k: 0 0 0 1
+    '''
+    #assert len(rgb_img.shape) == 4
+    #assert len(rgb_img.shape == 4
+    nhw1 = rgb_img.shape[:-1] + (1,)
+    k = np.logical_not(np.sum(rgb_img, axis=-1)) \
+          .astype(rgb_img.dtype) \
+          .reshape(nhw1)
+    rgbk_img = np.concatenate([rgb_img,k], axis=-1)
+    return rgbk_img
+
+def rgbk2rgb(rgbk_img):
+    ''' 
+    [arg]
+    rgbk_img.shape = (n,h,w,4)
+      r: 1 0 0 0
+      g: 0 1 0 0
+      b: 0 0 1 0
+      k: 0 0 0 1
+     [return]
+    rgb_img.shape = (n,h,w,3) 
+    4 class: 
+      r: 1 0 0
+      g: 0 1 0
+      b: 0 0 1
+      k: 0 0 0
+    '''
+    if len(rgbk_img.shape) == 4:
+        return rgbk_img[:,:,:,:3]
+    else:
+        return rgbk_img[:,:,:3]
 
 import cv2
 from utils import file_paths, load_imgs
