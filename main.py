@@ -266,7 +266,7 @@ def main(experiment_yml_path):
 
     predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
-    evaluator.save_img_tuples(zip(origins,answers,rgbk2rgb(predictions)),result_dir)
+    evaluator.save_img_tuples(zip(origins,answers, [rgbk2rgb(m) for m in predictions]),result_dir)
 
     test_metrics = model.evaluate_generator(test_gen, steps=test_steps_per_epoch)
     K.clear_session()
