@@ -8,7 +8,7 @@ import skimage.transform as trans
 import cv2
 from skimage.viewer import ImageViewer
 from itertools import cycle, islice
-from data_gen import augmenter, rgb2bgrk, bgrk2rgb
+from data_gen import augmenter, bgr2bgrk, bgrk2bgr
 from imgaug import augmenters as iaa
 from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
@@ -16,6 +16,21 @@ from keras import backend as K
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 
+def bgrk_weights(masks):
+    n_all, n_bgrk = 0, [0,0,0,0]
+    for mask in masks:
+        bgrk_mask = bgr2bgrk(mask)
+        class_map = np.argmax(bgrk_mask, axis=-1)
+        classes,counts = np.unique(class_map,return_counts=True)
+        for color,count in zip(classes,counts):
+            n_bgrk[color] += count
+        n_all += sum(n_bgrk)
+    w_b = n_all / n_bgrk[0]
+    w_g = 0 # no green!
+    w_r = n_all / n_bgrk[2]
+    w_k = n_all / n_bgrk[3]
+    #print(n_bgrk, w_b,w_g,w_r,w_k)
+    return w_b,w_g,w_r,w_k
 
 def weight01(imgs):
     num_all,num0,num1 = 0,0,0
@@ -53,7 +68,7 @@ def batch_gen(imgs, masks, batch_size,
             mask_batch = mask_aug.augment_images(mask_batch)
 
         if num_classes == 4:
-            mask_batch = rgb2bgrk(mask_batch)
+            mask_batch = bgr2bgrk(mask_batch)
 
         yield img_batch, mask_batch
 
@@ -120,6 +135,8 @@ def main(experiment_yml_path):
 
     w0,w1 = weight01(train_masks + valid_masks + test_masks)
     print('weight0 = %f, weight1 = %f' % (w0,w1))
+    weights = bgrk_weights(train_masks + valid_masks + test_masks)
+    print('b, g, r, k',weights)
 
     if num_sample is None: num_sample = 4 #2
     #calc mean h,w of dataset
@@ -204,7 +221,7 @@ def main(experiment_yml_path):
             cv2.imshow('i',im)
             if num_classes == 4:
                 print(ma.shape)
-                cv2.imshow('m',bgrk2rgb(ma)); cv2.waitKey(0)
+                cv2.imshow('m',bgrk2bgr(ma)); cv2.waitKey(0)
             else:
                 cv2.imshow('m',ma); cv2.waitKey(0)
     '''
@@ -234,8 +251,8 @@ def main(experiment_yml_path):
                  kernel_init=kernel_init, 
                  num_classes=num_classes, last_activation=last_activation,
                  num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
-                 optimizer=optimizer,
-                 loss=loss, weight_0=w0, weight_1=w1)
+                 loss=loss, optimizer=optimizer,
+                 weight_0=w0, weight_1=w1, weights=weights)
     #model.summary()
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
@@ -266,7 +283,7 @@ def main(experiment_yml_path):
 
     predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
-    evaluator.save_img_tuples(zip(origins,answers, [bgrk2rgb(m) for m in predictions]),result_dir)
+    evaluator.save_img_tuples(zip(origins,answers, [bgrk2bgr(m) for m in predictions]),result_dir)
 
     test_metrics = model.evaluate_generator(test_gen, steps=test_steps_per_epoch)
     K.clear_session()
