@@ -16,6 +16,50 @@ from keras import backend as K
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 
+def rgb2rgbk(rgb_img):
+    ''' 
+    [arg]
+    rgb_img.shape = (n,h,w,3) 
+    4 class: 
+      r: 1 0 0
+      g: 0 1 0
+      b: 0 0 1
+      k: 0 0 0
+     [return]
+    rgbk_img.shape = (n,h,w,4)
+      r: 1 0 0 0
+      g: 0 1 0 0
+      b: 0 0 1 0
+      k: 0 0 0 1
+    '''
+    #assert len(rgb_img.shape) == 4
+    #assert len(rgb_img.shape == 4
+    nhw1 = rgb_img.shape[:-1] + (1,)
+    k = np.logical_not(np.sum(rgb_img, axis=-1)) \
+          .astype(rgb_img.dtype) \
+          .reshape(nhw1)
+    rgbk_img = np.concatenate([rgb_img,k], axis=-1)
+    return rgbk_img
+
+def rgbk2rgb(rgbk_img):
+    ''' 
+    [arg]
+    rgbk_img.shape = (n,h,w,4)
+      r: 1 0 0 0
+      g: 0 1 0 0
+      b: 0 0 1 0
+      k: 0 0 0 1
+     [return]
+    rgb_img.shape = (n,h,w,3) 
+    4 class: 
+      r: 1 0 0
+      g: 0 1 0
+      b: 0 0 1
+      k: 0 0 0
+    '''
+    rgb_img = rgbk_img[:,:,:,:3]
+    return rgb_img
+
 def weight01(imgs):
     num_all,num0,num1 = 0,0,0
     for img in imgs:
@@ -189,12 +233,12 @@ def main(experiment_yml_path):
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug, img_aug)
     #--------------------------------------------------------------------
     '''
-    '''
     # DEBUG
     for ims,mas in my_gen:
         for im,ma in zip(ims,mas):
             cv2.imshow('i',im)
             cv2.imshow('m',ma); cv2.waitKey(0)
+    '''
     #---------------------------- train model ---------------------------
     if kernel_init is None: kernel_init = 'he_normal'
     if num_maxpool is None: num_maxpool = 4 
