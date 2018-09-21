@@ -35,13 +35,20 @@ def batch_gen(imgs, masks, batch_size,
     while True:
         img_batch = list(islice(img_flow,batch_size))
         mask_batch = list(islice(mask_flow,batch_size))
-        if augmentater:
-            aug_det = augmentater.to_deterministic()
+
+        if both_aug:
+            aug_det = both_aug.to_deterministic()
             img_batch = aug_det.augment_images(img_batch)
             mask_batch = aug_det.augment_images(mask_batch)
         else: # no random crop - use square crop dataset
             img_batch = np.array(img_batch, np.float32)
             mask_batch = np.array(mask_batch, np.float32)
+
+        if img_aug:
+            img_batch = img_aug.augment_images(img_batch)
+        if mask_aug:
+            mask_batch = mask_aug.augment_images(mask_batch)
+
         yield img_batch, mask_batch
 
 def modulo_ceil(x, mod):
