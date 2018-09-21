@@ -8,7 +8,7 @@ import skimage.transform as trans
 import cv2
 from skimage.viewer import ImageViewer
 from itertools import cycle, islice
-from data_gen import augmenter, rgb2rgbk, rgbk2rgb
+from data_gen import augmenter, rgb2bgrk, bgrk2rgb
 from imgaug import augmenters as iaa
 from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
@@ -53,7 +53,7 @@ def batch_gen(imgs, masks, batch_size,
             mask_batch = mask_aug.augment_images(mask_batch)
 
         if num_classes == 4:
-            mask_batch = rgb2rgbk(mask_batch)
+            mask_batch = rgb2bgrk(mask_batch)
 
         yield img_batch, mask_batch
 
@@ -204,7 +204,7 @@ def main(experiment_yml_path):
             cv2.imshow('i',im)
             if num_classes == 4:
                 print(ma.shape)
-                cv2.imshow('m',rgbk2rgb(ma)); cv2.waitKey(0)
+                cv2.imshow('m',bgrk2rgb(ma)); cv2.waitKey(0)
             else:
                 cv2.imshow('m',ma); cv2.waitKey(0)
     '''
@@ -266,7 +266,7 @@ def main(experiment_yml_path):
 
     predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
-    evaluator.save_img_tuples(zip(origins,answers, [rgbk2rgb(m) for m in predictions]),result_dir)
+    evaluator.save_img_tuples(zip(origins,answers, [bgrk2rgb(m) for m in predictions]),result_dir)
 
     test_metrics = model.evaluate_generator(test_gen, steps=test_steps_per_epoch)
     K.clear_session()

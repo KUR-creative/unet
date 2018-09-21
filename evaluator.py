@@ -15,7 +15,7 @@ import utils
 from utils import bgr_float32, load_imgs
 from utils import assert_exists, assert_not_exists
 from metric import advanced_metric
-from data_gen import rgbk2rgb
+from data_gen import bgrk2bgr
 import traceback
 
 np.set_printoptions(threshold=np.nan, linewidth=np.nan)
@@ -31,7 +31,7 @@ def binarization(img, threshold=100):
 def get_segmap(segnet, img_batch, batch_size=1):
     segmap = segnet.predict(img_batch, batch_size)
     if segmap.shape[-1] == 4:
-        segmap = rgbk2rgb(segmap)
+        segmap = bgrk2bgr(segmap)
     return segmap
 
 def iou(y_true,y_pred,thr=0.5):
@@ -102,7 +102,7 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
     for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
-        ans_rgb = np.copy(answer)
+        ans_bgr = np.copy(answer)
         # flatten
         if answer.shape[-1] != 1:
             answer = np.sum(answer, axis=-1)
@@ -116,12 +116,12 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         #img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
         segmap = segment(segnet, img, modulo=modulo) # not batch, just use img!
-        segmap_rgb = np.copy(segmap).reshape(segmap.shape[1:])
-        segmap_rgb = (segmap_rgb * 255).astype(np.uint8)
-        #print(np.unique(segmap_rgb))
-        segmap_rgb01 = binarization(np.copy(segmap_rgb))
-        #print(np.unique(segmap_rgb01))
-        #cv2.imshow('s',segmap_rgb);cv2.waitKey(0)
+        segmap_bgr = np.copy(segmap).reshape(segmap.shape[1:])
+        segmap_bgr = (segmap_bgr * 255).astype(np.uint8)
+        #print(np.unique(segmap_bgr))
+        segmap_bgr01 = binarization(np.copy(segmap_bgr))
+        #print(np.unique(segmap_bgr01))
+        #cv2.imshow('s',segmap_bgr);cv2.waitKey(0)
 
         #print('org',org_h,org_w)
         if segmap.shape[-1] != 1:
@@ -131,7 +131,7 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         answer = answer[:org_h,:org_w].reshape((org_h,org_w))  
         segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))
 
-        result_tuples.append( (inp,ans_rgb,segmap_rgb,segmap_rgb01) )
+        result_tuples.append( (inp,ans_bgr,segmap_bgr,segmap_bgr01) )
         iou_score = iou(answer,segmap)
         iou_arr.append( np.asscalar(np.mean(iou_score)) )
 

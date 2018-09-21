@@ -33,51 +33,51 @@ def augmenter(batch_size=4, crop_size=256, num_channels=3,
     print(aug_list)
     return iaa.Sequential(aug_list)
 
-def rgb2rgbk(rgb_img):
+def bgr2bgrk(bgr_img):
     ''' 
     [arg]
-    rgb_img.shape = (n,h,w,3) 
+    bgr_img.shape = (n,h,w,3) 
     4 class: 
-      r: 1 0 0
+      b: 1 0 0
       g: 0 1 0
-      b: 0 0 1
+      r: 0 0 1
       k: 0 0 0
      [return]
-    rgbk_img.shape = (n,h,w,4)
-      r: 1 0 0 0
+    bgrk_img.shape = (n,h,w,4)
+      b: 1 0 0 0
       g: 0 1 0 0
-      b: 0 0 1 0
+      r: 0 0 1 0
       k: 0 0 0 1
     '''
-    #assert len(rgb_img.shape) == 4
-    #assert len(rgb_img.shape == 4
-    nhw1 = rgb_img.shape[:-1] + (1,)
-    k = np.logical_not(np.sum(rgb_img, axis=-1)) \
-          .astype(rgb_img.dtype) \
+    #assert len(bgr_img.shape) == 4
+    #assert len(bgr_img.shape == 4
+    nhw1 = bgr_img.shape[:-1] + (1,)
+    k = np.logical_not(np.sum(bgr_img, axis=-1)) \
+          .astype(bgr_img.dtype) \
           .reshape(nhw1)
-    rgbk_img = np.concatenate([rgb_img,k], axis=-1)
-    return rgbk_img
+    bgrk_img = np.concatenate([bgr_img,k], axis=-1)
+    return bgrk_img
 
-def rgbk2rgb(rgbk_img):
+def bgrk2bgr(bgrk_img):
     ''' 
     [arg]
-    rgbk_img.shape = (n,h,w,4)
-      r: 1 0 0 0
+    bgrk_img.shape = (n,h,w,4)
+      b: 1 0 0 0
       g: 0 1 0 0
-      b: 0 0 1 0
+      r: 0 0 1 0
       k: 0 0 0 1
      [return]
-    rgb_img.shape = (n,h,w,3) 
+    bgr_img.shape = (n,h,w,3) 
     4 class: 
-      r: 1 0 0
+      b: 1 0 0
       g: 0 1 0
-      b: 0 0 1
+      r: 0 0 1
       k: 0 0 0
     '''
-    if len(rgbk_img.shape) == 4:
-        return rgbk_img[:,:,:,:3]
+    if len(bgrk_img.shape) == 4:
+        return bgrk_img[:,:,:,:3]
     else:
-        return rgbk_img[:,:,:3]
+        return bgrk_img[:,:,:3]
 
 import cv2
 from utils import file_paths, load_imgs
