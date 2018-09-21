@@ -9,8 +9,11 @@ from keras.optimizers import *
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
-'''
-'''
+def jaccard_distance(y_true, y_pred, smooth=100, weight1=1.):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=-1)
+    sum_ = K.sum(y_true + y_pred, axis=-1)
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return (1 - jac) * smooth * weight1 #weighted to label 1
 
 
 # https://www.kaggle.com/aglotero/another-iou-metric  
@@ -117,7 +120,7 @@ def as_keras_metric(method):
 def mean_iou(y_true, y_pred, num_classes=2):
     return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
-def create_weighted_binary_crossentropy(zero_weight, one_weight):
+def build_weighted_binary_crossentropy(weight_0, weight_1):
     def weighted_binary_crossentropy(y_true, y_pred):
 
         # Original binary crossentropy (see losses.py):
@@ -127,7 +130,7 @@ def create_weighted_binary_crossentropy(zero_weight, one_weight):
         b_ce = K.binary_crossentropy(y_true, y_pred)
 
         # Apply the weights
-        weight_vector = y_true * one_weight + (1. - y_true) * zero_weight
+        weight_vector = y_true * weight_1 + (1. - y_true) * weight_0
         weighted_b_ce = weight_vector * b_ce
 
         # Return the mean error
@@ -160,7 +163,8 @@ def up_block(from_horizon, upward, cnum, kernel_init, filter_vec=(3,3,1)):
 def unet(pretrained_weights = None,input_size = (256,256,1),
          kernel_init='he_normal', 
          num_filters=64, num_maxpool = 4, filter_vec=(3,3,1),
-         lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5):
+         lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5,
+         loss='jaccard'):
     '''
     depth = 4
     inp -> 0-------8 -> out
@@ -184,10 +188,15 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
     out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(x)
 
     model = Model(input=inp, output=out)
-    from keras_contrib.losses.jaccard import jaccard_distance
-    model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
-                  loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred), #,smooth=lr
-                  metrics=[mean_iou])
+    #from keras_contrib.losses.jaccard import jaccard_distance
+    if loss == 'jaccard':
+        model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
+                      loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100,weight_1), #,smooth=lr
+                      metrics=[mean_iou])
+    elif loss == 'wbce':
+        model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
+                      loss=build_weighted_binary_crossentropy(weight_0, weight_1), #,smooth=lr
+                      metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 

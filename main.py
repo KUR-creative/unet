@@ -13,8 +13,21 @@ from imgaug import augmenters as iaa
 from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
 from keras import backend as K
+from keras.callbacks import TensorBoard
 
-def batch_gen(imgs, masks, batch_size, augmentater):
+def weight01(imgs):
+    num_all,num0,num1 = 0,0,0
+    for img in imgs:
+        h,w = img.shape[:2]
+        num_all += h*w
+        num1 += np.count_nonzero(img)
+        num0 += (num_all - num1)
+    weight0 = num_all / num0
+    weight1 = num_all / num1 
+    return weight0, weight1
+
+def batch_gen(imgs, masks, batch_size, 
+              both_aug=None, img_aug=None, mask_aug=None):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
@@ -61,7 +74,8 @@ def main(experiment_yml_path):
     num_filters = config.get('num_filters')
     num_sample = config.get('num_sample')
     filter_vec = config.get('filter_vec')
-    dset_type = config.get('dset_type')
+    sqr_crop_dataset = config.get('sqr_crop_dataset')
+    loss = config.get('loss')
     #loaded_model = save_model_path ## NOTE
     loaded_model = None
     #--------------------------------------------------------------------
@@ -84,6 +98,9 @@ def main(experiment_yml_path):
     valid_masks =list(load_imgs(os.path.join(valid_dir,'label')))
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
     test_masks = list(load_imgs(os.path.join(test_dir, 'label')))
+
+    w0,w1 = weight01(train_masks + valid_masks + test_masks)
+    print('weight0 = %f, weight1 = %f' % (w0,w1))
 
     if num_sample is None: num_sample = 4 #2
     #calc mean h,w of dataset
@@ -133,17 +150,18 @@ def main(experiment_yml_path):
     test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
     #--------------------------------------------------------------------
     '''
+    '''
     # DEBUG
     for ims,mas in my_gen:
         for im,ma in zip(ims,mas):
             cv2.imshow('i',im)
             cv2.imshow('m',ma); cv2.waitKey(0)
-    '''
     #---------------------------- train model ---------------------------
     if kernel_init is None: kernel_init = 'he_normal'
     if num_maxpool is None: num_maxpool = 4 
     if num_filters is None: num_filters = 64
     if filter_vec is None: filter_vec = (3,3,1)
+    if loss is None: 'jaccard'
     print('filter_vec = ', filter_vec)
 
     LEARNING_RATE = 1.0
@@ -151,16 +169,20 @@ def main(experiment_yml_path):
                  input_size=(IMG_SIZE,IMG_SIZE,1),
                  kernel_init=kernel_init,
                  num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
-                 lr=LEARNING_RATE)
+                 lr=LEARNING_RATE, 
+                 loss=loss, weight_0=w0, weight_1=w1)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
     train_timer = ElapsedTimer(experiment_yml_path + ' training')
-    history = model.fit_generator(my_gen, epochs=NUM_EPOCHS,
-                                  steps_per_epoch=train_steps_per_epoch, 
-                                  validation_steps=valid_steps_per_epoch,
-                                  validation_data=valid_gen, 
-                                  callbacks=[model_checkpoint])
+    history = model.fit_generator(
+        my_gen, epochs=NUM_EPOCHS,
+        steps_per_epoch=train_steps_per_epoch, 
+        validation_steps=valid_steps_per_epoch,
+        validation_data=valid_gen, 
+        callbacks=[model_checkpoint,
+                   TensorBoard(log_dir=experiment_name+'_logs',
+                               batch_size=BATCH_SIZE, write_graph=False)])
     train_time_str = train_timer.elapsed_time()
     #--------------------------------------------------------------------
 
