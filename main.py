@@ -14,7 +14,7 @@ from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
 from keras import backend as K
 from keras.callbacks import TensorBoard
-from keras.optimizer import Adam
+from keras.optimizers import Adam
 
 def weight01(imgs):
     num_all,num0,num1 = 0,0,0
@@ -150,15 +150,43 @@ def main(experiment_yml_path):
                     mode='reflect'),
                 ]
               )
+    elif data_augmentation == 'manga2':
+        aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
+                crop_before_augs=[
+                  iaa.Affine(
+                    rotate=(-3,3), shear=(-3,3), 
+                    scale={'x':(0.8,1.5), 'y':(0.8,1.5)},
+                    mode='reflect'),
+                ]
+              )
+        img_aug = iaa.Sequential([
+            iaa.ContrastNormalization((0.998, 1.002)),
+            iaa.Sharpen(alpha=(0.0, 0.75), lightness=(0.5, 1.5)),
+        ],random_order=True)
+    elif data_augmentation == 'too_hard(prev manga2)':
+        aug = augmenter(BATCH_SIZE, IMG_SIZE, 1, 
+                crop_before_augs=[
+                  iaa.Fliplr(0.5),
+                  iaa.Flipud(0.5),
+                  iaa.Affine(
+                    rotate=(-170,170), shear=(-3,3), 
+                    scale={'x':(0.8,1.5), 'y':(0.8,1.5)},
+                    mode='reflect'),
+                ]
+              )
+        img_aug = iaa.Sequential([
+            iaa.ContrastNormalization((0.998, 1.002)),
+            iaa.Sharpen(alpha=(0.0, 0.75), lightness=(0.75, 3.0)),
+        ],random_order=True)
     elif data_augmentation == 'no_aug':
         aug = augmenter(BATCH_SIZE, IMG_SIZE, 1)
 
     if sqr_crop_dataset:
         aug = None
 
-    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug)
-    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug)
-    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug)
+    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug, img_aug)
+    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug, img_aug)
+    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug, img_aug)
     #--------------------------------------------------------------------
     '''
     '''
