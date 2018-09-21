@@ -236,7 +236,7 @@ def main(experiment_yml_path):
                  num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
                  optimizer=optimizer,
                  loss=loss, weight_0=w0, weight_1=w1)
-    model.summary()
+    #model.summary()
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)
@@ -266,7 +266,7 @@ def main(experiment_yml_path):
 
     predictions = model.predict_generator((img.reshape(1,IMG_SIZE,IMG_SIZE,1) for img in origins), 
                                           num_imgs, verbose=1)
-    evaluator.save_img_tuples(zip(origins,answers,predictions),result_dir)
+    evaluator.save_img_tuples(zip(origins,answers,rgbk2rgb(predictions)),result_dir)
 
     test_metrics = model.evaluate_generator(test_gen, steps=test_steps_per_epoch)
     K.clear_session()
@@ -290,6 +290,7 @@ def main(experiment_yml_path):
     modulo = 2**num_maxpool
     evaluator.eval_and_save_result2(dataset_dir, save_model_path, eval_result_dirpath,
                                     files_2b_copied=[history_path, experiment_yml_path],
+                                    num_classes=num_classes, last_activation=last_activation,
                                     num_filters=num_filters, num_maxpool=num_maxpool, 
                                     filter_vec=filter_vec,modulo=modulo)
     #--------------------------------------------------------------------

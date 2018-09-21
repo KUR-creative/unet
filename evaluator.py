@@ -15,6 +15,17 @@ import utils
 from utils import bgr_float32, load_imgs
 from utils import assert_exists, assert_not_exists
 from metric import advanced_metric
+from data_gen import rgbk2rgb
+import traceback
+
+def get_segmap(segnet, img_batch, batch_size=1):
+    segmap = segnet.predict(img_batch, batch_size)
+    if segmap.shape[-1] == 4:
+        segmap = rgbk2rgb(segmap)
+    if segmap.shape[-1] != 1:
+        segmap = np.sum(segmap, axis=-1)
+        segmap = segmap.reshape(segmap.shape + (1,))
+    return segmap
 
 def iou(y_true,y_pred,thr=0.5):
     y_true = (y_true.flatten() >= thr).astype(np.uint8)
@@ -43,10 +54,12 @@ def segment_or_oom(segnet, inp, modulo=16):
     img_shape = img.shape #NOTE grayscale!
     img_bat = img.reshape((1,) + img_shape) # size 1 batch
     try:
-        segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
+        segmap = get_segmap(segnet, img_bat)#segnet.predict(img_bat, batch_size=1)#, verbose=1)
+        print(segmap.shape)
         segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w)) # remove padding
         return segmap
-    except: # ResourceExhaustedError:
+    except Exception as e: # ResourceExhaustedError:
+        print(traceback.print_exc()); exit()
         print(img_shape,'OOM error: image is too big. (in segnet)')
         return None
 
@@ -83,6 +96,9 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
     for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
+        # flatten
+        if answer.shape[-1] != 1:
+            answer = np.sum(answer, axis=-1)
         if inp.shape <= answer.shape:
             org_h,org_w = inp.shape[:2]
         else:
@@ -116,7 +132,7 @@ def evaluate(segnet, inputs, answers, modulo=16):
         img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
         try:
-            segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
+            segmap = get_segmap(segnet, img_bat)#segnet.predict(img_bat, batch_size=1)#, verbose=1)
             segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
 
             result_tuples.append( (inp.reshape([org_h,org_w]), 
@@ -150,7 +166,7 @@ def inference(segnet, inputs, modulo=16):
         img_shape = img.shape #NOTE grayscale!
         img_bat = img.reshape((1,) + img_shape) # size 1 batch
         try:
-            segmap = segnet.predict(img_bat, batch_size=1)#, verbose=1)
+            segmap = get_segmap(segnet, img_bat)#segnet.predict(img_bat, batch_size=1)#, verbose=1)
             segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w))
             outputs.append(segmap)
         except ResourceExhaustedError:
@@ -266,6 +282,7 @@ def eval_and_save_result2(dataset_dir, model_path, eval_result_dirpath,
                          eval_summary_name='eval_summary.yml',
                          files_2b_copied=None,
                          num_filters=64,num_maxpool=4, filter_vec=(3,3,1),
+                         num_classes=1, last_activation='sigmoid',
                          modulo=16):
     '''
     for manga!
@@ -295,6 +312,7 @@ def eval_and_save_result2(dataset_dir, model_path, eval_result_dirpath,
 
     #---- eval ----
     segnet = model.unet(model_path, (None,None,1), 
+                        num_classes=num_classes, last_activation=last_activation,
                         num_filters=num_filters, num_maxpool=num_maxpool,
                         filter_vec=filter_vec)
     train_metrics, train_result_tuples = evaluate_manga(segnet, train_inputs, train_answers, modulo)
