@@ -15,6 +15,19 @@ def jaccard_distance(y_true, y_pred, smooth=100, weight1=1.):
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
     return (1 - jac) * smooth * weight1 #weighted to label 1
 
+def jaccard_coefficient(y_true, y_pred, smooth=100, weight1=1.):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=-1)
+    sum_ = K.sum(y_true + y_pred, axis=-1)
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return jac
+
+'''
+def jaccard_distance(y_true, y_pred, smooth=100, weight1=1.):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=(1,2,3))
+    sum_ = K.sum(y_true + y_pred, axis=(1,2,3))
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return (1 - jac) * smooth * weight1 #weighted to label 1
+'''
 
 # https://www.kaggle.com/aglotero/another-iou-metric  
 # iou = tp / (tp + fp + fn)
@@ -117,7 +130,7 @@ def as_keras_metric(method):
     return wrapper
 
 @as_keras_metric
-def mean_iou(y_true, y_pred, num_classes=2):
+def mean_iou_(y_true, y_pred, num_classes=2):
     return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
 def build_weighted_binary_crossentropy(weight_0, weight_1):
@@ -194,6 +207,10 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
         loss = lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100)#,weight_1)
     elif loss == 'wbce': 
         loss = build_weighted_binary_crossentropy(weight_0, weight_1)
+
+    @as_keras_metric
+    def mean_iou(y_true, y_pred):
+        return tf.metrics.mean_iou(y_true, y_pred, num_classes)
     model = Model(input=inp, output=out)
     model.compile(optimizer=optimizer,#Adam(lr = lr,decay=decay), 
                   loss=loss, metrics=[mean_iou])
