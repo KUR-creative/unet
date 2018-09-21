@@ -187,12 +187,13 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
 
     out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(x)
 
+    if loss == 'jaccard':
+        loss = lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100)#,weight_1)
+    elif loss == 'wbce': 
+        loss = build_weighted_binary_crossentropy(weight_0, weight_1)
     model = Model(input=inp, output=out)
-    #from keras_contrib.losses.jaccard import jaccard_distance
-    if loss == 'jaccard':loss = lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100,weight_1)
-    elif loss == 'wbce': loss = build_weighted_binary_crossentropy(weight_0, weight_1)
-        model.compile(optimizer=Adadelta(lr),#Adam(lr = lr,decay=decay), 
-                      loss=loss, metrics=[mean_iou])
+    model.compile(optimizer=Adadelta(lr),#Adam(lr = lr,decay=decay), 
+                  loss=loss, metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 
