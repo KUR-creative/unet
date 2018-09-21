@@ -14,6 +14,7 @@ from utils import file_paths, bgr_float32, load_imgs, human_sorted, ElapsedTimer
 import evaluator
 from keras import backend as K
 from keras.callbacks import TensorBoard
+from keras.optimizer import Adam
 
 def weight01(imgs):
     num_all,num0,num1 = 0,0,0
@@ -75,8 +76,11 @@ def main(experiment_yml_path):
     num_sample = config.get('num_sample')
     filter_vec = config.get('filter_vec')
     sqr_crop_dataset = config.get('sqr_crop_dataset')
+
     loss = config.get('loss')
-    #loaded_model = save_model_path ## NOTE
+    optimizer = config.get('optimizer')
+    learning_rate = config.get('learning_rate')
+
     loaded_model = None
     #--------------------------------------------------------------------
 
@@ -162,14 +166,21 @@ def main(experiment_yml_path):
     if num_filters is None: num_filters = 64
     if filter_vec is None: filter_vec = (3,3,1)
     if loss is None: 'jaccard'
+
+    if optimizer is None: 
+        optimizer = 'Adadelta'
+        if learning_rate is None: learning_rate = 1.0
+    elif optimizer == 'Adam':
+        if learning_rate is None: learning_rate = 0.001
+        optimizer = Adam(lr=learning_rate)
+
     print('filter_vec = ', filter_vec)
 
-    LEARNING_RATE = 1.0
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
                  kernel_init=kernel_init,
                  num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
-                 lr=LEARNING_RATE, 
+                 lr=learning_rate, optimizer=optimizer,
                  loss=loss, weight_0=w0, weight_1=w1)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',

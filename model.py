@@ -164,7 +164,7 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
          kernel_init='he_normal', 
          num_filters=64, num_maxpool = 4, filter_vec=(3,3,1),
          lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5,
-         loss='jaccard'):
+         loss='jaccard',optimizer='Adadelta'):
     '''
     depth = 4
     inp -> 0-------8 -> out
@@ -189,14 +189,10 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
 
     model = Model(input=inp, output=out)
     #from keras_contrib.losses.jaccard import jaccard_distance
-    if loss == 'jaccard':
-        model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
-                      loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100,weight_1), #,smooth=lr
-                      metrics=[mean_iou])
-    elif loss == 'wbce':
-        model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
-                      loss=build_weighted_binary_crossentropy(weight_0, weight_1), #,smooth=lr
-                      metrics=[mean_iou])
+    if loss == 'jaccard':loss = lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100,weight_1)
+    elif loss == 'wbce': loss = build_weighted_binary_crossentropy(weight_0, weight_1)
+        model.compile(optimizer=Adadelta(lr),#Adam(lr = lr,decay=decay), 
+                      loss=loss, metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 
