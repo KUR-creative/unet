@@ -22,9 +22,6 @@ def get_segmap(segnet, img_batch, batch_size=1):
     segmap = segnet.predict(img_batch, batch_size)
     if segmap.shape[-1] == 4:
         segmap = rgbk2rgb(segmap)
-    if segmap.shape[-1] != 1:
-        segmap = np.sum(segmap, axis=-1)
-        segmap = segmap.reshape(segmap.shape + (1,))
     return segmap
 
 def iou(y_true,y_pred,thr=0.5):
@@ -55,8 +52,7 @@ def segment_or_oom(segnet, inp, modulo=16):
     img_bat = img.reshape((1,) + img_shape) # size 1 batch
     try:
         segmap = get_segmap(segnet, img_bat)#segnet.predict(img_bat, batch_size=1)#, verbose=1)
-        print(segmap.shape)
-        segmap = segmap[:,:org_h,:org_w,:].reshape((org_h,org_w)) # remove padding
+        segmap = segmap[:,:org_h,:org_w,:]#.reshape((org_h,org_w)) # remove padding
         return segmap
     except Exception as e: # ResourceExhaustedError:
         print(traceback.print_exc()); exit()
@@ -96,6 +92,7 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
     for inp, answer in tqdm( zip(inputs,answers), total=len(inputs) ):
+        ans_rgb = np.copy(answer)
         # flatten
         if answer.shape[-1] != 1:
             answer = np.sum(answer, axis=-1)
@@ -109,11 +106,21 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         #img_bat = img.reshape((1,) + img_shape) # size 1 batch
 
         segmap = segment(segnet, img, modulo=modulo) # not batch, just use img!
+        segmap_rgb = np.copy(segmap).reshape(segmap.shape[1:])
+        segmap_rgb = (segmap_rgb * 255).astype(np.uint8)
+        #print(segmap_rgb.shape)
+        #print(np.unique(segmap_rgb))
+        #cv2.imshow('s',segmap_rgb);cv2.waitKey(0)
+
+        #print('org',org_h,org_w)
+        if segmap.shape[-1] != 1:
+            segmap = np.sum(segmap, axis=-1)
+            segmap = segmap.reshape(segmap.shape[1:])
         inp = inp[:org_h,:org_w].reshape((org_h,org_w))
         answer = answer[:org_h,:org_w].reshape((org_h,org_w))  
         segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))
 
-        result_tuples.append( (inp,answer,segmap) )
+        result_tuples.append( (inp,ans_rgb,segmap_rgb) )
         iou_score = iou(answer,segmap)
         iou_arr.append( np.asscalar(np.mean(iou_score)) )
 
@@ -303,12 +310,13 @@ def eval_and_save_result2(dataset_dir, model_path, eval_result_dirpath,
     assert_exists(valid_label_dir)
     assert_exists(test_img_dir)
     assert_exists(test_label_dir)
+    mask_type = cv2.IMREAD_GRAYSCALE if num_classes == 1 else cv2.IMREAD_COLOR
     train_inputs = list(load_imgs(train_img_dir))
-    train_answers = list(load_imgs(train_label_dir))
+    train_answers = list(load_imgs(train_label_dir, mask_type))
     valid_inputs = list(load_imgs(valid_img_dir))
-    valid_answers = list(load_imgs(valid_label_dir))
+    valid_answers = list(load_imgs(valid_label_dir, mask_type))
     test_inputs = list(load_imgs(test_img_dir))
-    test_answers = list(load_imgs(test_label_dir))
+    test_answers = list(load_imgs(test_label_dir, mask_type))
 
     #---- eval ----
     segnet = model.unet(model_path, (None,None,1), 
