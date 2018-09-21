@@ -53,7 +53,8 @@ def batch_gen(imgs, masks, batch_size,
             mask_batch = mask_aug.augment_images(mask_batch)
 
         if num_classes == 4:
-            mask_batch = [rgb2rgbk(mask) for mask in mask_batch]
+            mask_batch = rgb2rgbk(mask_batch)
+
         yield img_batch, mask_batch
 
 def modulo_ceil(x, mod):
@@ -109,12 +110,13 @@ def main(experiment_yml_path):
     #--------------------------------------------------------------------
 
     #-------------------- ready to generate batch -----------------------
+    mask_type = cv2.IMREAD_GRAYSCALE if num_classes == 1 else cv2.IMREAD_COLOR
     train_imgs = list(load_imgs(os.path.join(train_dir,'image')))
-    train_masks =list(load_imgs(os.path.join(train_dir,'label'), cv2.IMREAD_COLOR))
+    train_masks =list(load_imgs(os.path.join(train_dir,'label'), mask_type))
     valid_imgs = list(load_imgs(os.path.join(valid_dir,'image')))
-    valid_masks =list(load_imgs(os.path.join(valid_dir,'label'), cv2.IMREAD_COLOR))
+    valid_masks =list(load_imgs(os.path.join(valid_dir,'label'), mask_type))
     test_imgs =  list(load_imgs(os.path.join(test_dir, 'image')))
-    test_masks = list(load_imgs(os.path.join(test_dir, 'label'), cv2.IMREAD_COLOR))
+    test_masks = list(load_imgs(os.path.join(test_dir, 'label'), mask_type))
 
     w0,w1 = weight01(train_masks + valid_masks + test_masks)
     print('weight0 = %f, weight1 = %f' % (w0,w1))
@@ -212,6 +214,10 @@ def main(experiment_yml_path):
     if num_filters is None: num_filters = 64
     if filter_vec is None: filter_vec = (3,3,1)
     if loss is None: 'jaccard'
+    if (num_classes is None) or num_classes == 1:
+        last_activation = 'sigmoid'
+    else:
+        last_activation = 'softmax'
 
     if optimizer is None: 
         optimizer = 'Adadelta'
@@ -222,12 +228,15 @@ def main(experiment_yml_path):
 
     print('filter_vec = ', filter_vec)
 
+    print('nc:',num_classes, 'la:',last_activation)
     model = unet(pretrained_weights=loaded_model,
                  input_size=(IMG_SIZE,IMG_SIZE,1),
-                 kernel_init=kernel_init,
+                 kernel_init=kernel_init, 
+                 num_classes=num_classes, last_activation=last_activation,
                  num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
-                 lr=learning_rate, optimizer=optimizer,
+                 optimizer=optimizer,
                  loss=loss, weight_0=w0, weight_1=w1)
+    model.summary()
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)

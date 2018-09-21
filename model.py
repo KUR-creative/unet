@@ -162,8 +162,9 @@ def up_block(from_horizon, upward, cnum, kernel_init, filter_vec=(3,3,1)):
 
 def unet(pretrained_weights = None,input_size = (256,256,1),
          kernel_init='he_normal', 
+         num_classes=1, last_activation='sigmoid',
          num_filters=64, num_maxpool = 4, filter_vec=(3,3,1),
-         lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5,
+         weight_0=0.5, weight_1=0.5,
          loss='jaccard',optimizer='Adadelta'):
     '''
     depth = 4
@@ -185,14 +186,16 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
     for i in reversed(range(depth)): 
         x = up_block(down_convs[i], x, 2**i * cnum, kernel_init, filter_vec=filter_vec)
 
-    out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(x)
+    print('nc:',num_classes, 'la:',last_activation)
+    out = Conv2D(num_classes, (1,1), padding='same',
+                 kernel_initializer=kernel_init, activation = last_activation)(x)
 
     if loss == 'jaccard':
         loss = lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100)#,weight_1)
     elif loss == 'wbce': 
         loss = build_weighted_binary_crossentropy(weight_0, weight_1)
     model = Model(input=inp, output=out)
-    model.compile(optimizer=Adadelta(lr),#Adam(lr = lr,decay=decay), 
+    model.compile(optimizer=optimizer,#Adam(lr = lr,decay=decay), 
                   loss=loss, metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
@@ -209,70 +212,6 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
 
 if __name__ == '__main__':
     from keras.utils import plot_model
-    model = unet()
+    model = unet(num_classes=4,last_activation='softmax')
     model.summary()
     plot_model(model, to_file='C_model.png', show_shapes=True)
-
-'''
-conv0, half = down_block( inp, 2**0 * cnum, kernel_init)
-conv1, half = down_block(half, 2**1 * cnum, kernel_init)
-conv2, half = down_block(half, 2**2 * cnum, kernel_init)
-conv3, half = down_block(half, 2**3 * cnum, kernel_init)
-
-conv4       = down_block(half, 2**4 * cnum, kernel_init, maxpool2x=False)
-
-conv5 = up_block(conv3, conv4, 2**3 * cnum, kernel_init)
-conv6 = up_block(conv2, conv5, 2**2 * cnum, kernel_init)
-conv7 = up_block(conv1, conv6, 2**1 * cnum, kernel_init)
-conv8 = up_block(conv0, conv7, 2**0 * cnum, kernel_init)
-'''
-
-'''
-conv1 = set_layer_BN_relu(  inp, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv1)
-
-conv2 = set_layer_BN_relu( pool, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv2 = set_layer_BN_relu(conv2, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv2 = set_layer_BN_relu(conv2, Conv2D, 128, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv2)
-
-conv3 = set_layer_BN_relu( pool, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv3 = set_layer_BN_relu(conv3, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv3 = set_layer_BN_relu(conv3, Conv2D, 256, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv3)
-
-conv4 = set_layer_BN_relu( pool, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv4 = set_layer_BN_relu(conv4, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv4 = set_layer_BN_relu(conv4, Conv2D, 512, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv4)
-
-conv5 = set_layer_BN_relu( pool, Conv2D,1024, (3,3), padding='same', kernel_initializer=kernel_init)
-conv5 = set_layer_BN_relu(conv5, Conv2D,1024, (3,3), padding='same', kernel_initializer=kernel_init)
-conv5 = set_layer_BN_relu(conv5, Conv2D,1024, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv6 = Conv2DTranspose(512, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv5)
-merge6 = concatenate([conv4,conv6], axis=3)
-conv6 = set_layer_BN_relu(merge6, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv6 = set_layer_BN_relu( conv6, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv6 = set_layer_BN_relu( conv6, Conv2D, 512, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv7 = Conv2DTranspose(256, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv6)
-merge7 = concatenate([conv3,conv7], axis=3)
-conv7 = set_layer_BN_relu(merge7, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv7 = set_layer_BN_relu( conv7, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv7 = set_layer_BN_relu( conv7, Conv2D, 256, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv8 = Conv2DTranspose(128, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv7)
-merge8 = concatenate([conv2,conv8], axis=3)
-conv8 = set_layer_BN_relu(merge8, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv8 = set_layer_BN_relu( conv8, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv8 = set_layer_BN_relu( conv8, Conv2D, 128, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv9 = Conv2DTranspose(64, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv8)
-merge9 = concatenate([conv1,conv9], axis=3)
-conv9 = set_layer_BN_relu(merge9, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (1,1), padding='same', kernel_initializer=kernel_init)
-'''
