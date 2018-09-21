@@ -18,6 +18,16 @@ from metric import advanced_metric
 from data_gen import rgbk2rgb
 import traceback
 
+np.set_printoptions(threshold=np.nan, linewidth=np.nan)
+
+def binarization(img, threshold=100):
+    #print(img[100:152,100:160])
+    binarized = (img >= threshold).astype(np.uint8) * 255
+    #print(binarized[100:152,100:160])
+    #cv2.imshow('i',img)
+    #cv2.imshow('b',binarized);cv2.waitKey(0)    
+    return binarized
+
 def get_segmap(segnet, img_batch, batch_size=1):
     segmap = segnet.predict(img_batch, batch_size)
     if segmap.shape[-1] == 4:
@@ -108,8 +118,9 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         segmap = segment(segnet, img, modulo=modulo) # not batch, just use img!
         segmap_rgb = np.copy(segmap).reshape(segmap.shape[1:])
         segmap_rgb = (segmap_rgb * 255).astype(np.uint8)
-        #print(segmap_rgb.shape)
         #print(np.unique(segmap_rgb))
+        segmap_rgb01 = binarization(np.copy(segmap_rgb))
+        #print(np.unique(segmap_rgb01))
         #cv2.imshow('s',segmap_rgb);cv2.waitKey(0)
 
         #print('org',org_h,org_w)
@@ -120,7 +131,7 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         answer = answer[:org_h,:org_w].reshape((org_h,org_w))  
         segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))
 
-        result_tuples.append( (inp,ans_rgb,segmap_rgb) )
+        result_tuples.append( (inp,ans_rgb,segmap_rgb,segmap_rgb01) )
         iou_score = iou(answer,segmap)
         iou_arr.append( np.asscalar(np.mean(iou_score)) )
 
@@ -264,13 +275,21 @@ def save_eval_summary(eval_summary_path,
         print('-----------------------------------')
 
 def save_img_tuples(result_tuples, result_dir):
-    for idx,(org,ans,pred) in enumerate(result_tuples):
-        cv2.imwrite(os.path.join(result_dir, '%d.png' % idx),
-                    (org * 255).astype(np.uint8))
-        cv2.imwrite(os.path.join(result_dir, '%dans.png' % idx),
-                    (ans * 255).astype(np.uint8))
-        cv2.imwrite(os.path.join(result_dir, '%dpred.png' % idx),
-                    (pred * 255).astype(np.uint8))
+        for idx,result_tuple in enumerate(result_tuples):
+            org,ans,pred = result_tuple[:3]
+            cv2.imwrite(os.path.join(result_dir, '%d.png' % idx),
+                        (org * 255).astype(np.uint8))
+            cv2.imwrite(os.path.join(result_dir, '%dans.png' % idx),
+                        (ans * 255).astype(np.uint8))
+            #print('p',np.unique(pred))
+            #print('pt',pred.dtype)
+            cv2.imwrite(os.path.join(result_dir, '%dpred.png' % idx), pred)
+
+            if len(result_tuple) == 4:
+                pred01 = result_tuple[3]
+                cv2.imwrite(os.path.join(result_dir, '%dpred01.png' % idx), pred01)
+                #print('p',np.unique(pred01))
+                #print('pt',pred01.dtype)
 
 def make_eval_directory(eval_dirpath, eval_summary_name='summary.yml',
                         train_dir='train',valid_dir='valid',test_dir='test'):
