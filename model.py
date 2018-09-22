@@ -7,11 +7,62 @@ from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras import backend as keras
+
+def jaccard_distance(y_true, y_pred, smooth=100, weight1=1.):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=-1)
+    sum_ = K.sum(y_true + y_pred, axis=-1)
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return (1 - jac) * smooth * weight1 #weighted to label 1
+
+def jaccard_coefficient(y_true, y_pred, smooth=100, weight1=1.):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=-1)
+    sum_ = K.sum(y_true + y_pred, axis=-1)
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return jac
+
+def weighted_jaccard_distance(y_true, y_pred, weights, smooth=100):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=(1,2))[:] * weights
+    sum_ = K.sum(y_true + y_pred, axis=(1,2))[:] * weights
+
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return K.mean((1 - K.mean(jac)) * smooth)
+'''
+def jaccard_distance(y_true, y_pred, smooth=100, weight1=1.):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=(1,2,3))
+    sum_ = K.sum(y_true + y_pred, axis=(1,2,3))
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return (1 - jac) * smooth * weight1 #weighted to label 1
+'''
 
 '''
+A weighted version of categorical_crossentropy for keras (2.0.6). This lets you apply a weight to unbalanced classes.
+@url: https://gist.github.com/wassname/ce364fddfc8a025bfab4348cf5de852d
+@author: wassname
 '''
-
+from keras import backend as K
+def weighted_categorical_crossentropy(weights):
+    '''
+    A weighted version of keras.objectives.categorical_crossentropy
+    
+    Variables:
+        weights: numpy array of shape (C,) where C is the number of classes
+    
+    Usage:
+        weights = np.array([0.5,2,10]) # Class one at 0.5, class 2 twice the normal weights, class 3 10x.
+        loss = weighted_categorical_crossentropy(weights)
+        model.compile(loss=loss,optimizer='adam')
+    '''
+    weights = K.variable(weights)        
+    def loss(y_true, y_pred):
+        # scale predictions so that the class probas of each sample sum to 1
+        y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
+        # clip to prevent NaN's and Inf's
+        y_pred = K.clip(y_pred, K.epsilon(), 1 - K.epsilon())
+        # calc
+        loss = y_true * K.log(y_pred) * weights
+        loss = -K.sum(loss, -1)
+        return loss
+    return loss
 
 # https://www.kaggle.com/aglotero/another-iou-metric  
 # iou = tp / (tp + fp + fn)
@@ -114,10 +165,10 @@ def as_keras_metric(method):
     return wrapper
 
 @as_keras_metric
-def mean_iou(y_true, y_pred, num_classes=2):
+def mean_iou_(y_true, y_pred, num_classes=1):
     return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
-def create_weighted_binary_crossentropy(zero_weight, one_weight):
+def build_weighted_binary_crossentropy(weight_0, weight_1):
     def weighted_binary_crossentropy(y_true, y_pred):
 
         # Original binary crossentropy (see losses.py):
@@ -127,7 +178,7 @@ def create_weighted_binary_crossentropy(zero_weight, one_weight):
         b_ce = K.binary_crossentropy(y_true, y_pred)
 
         # Apply the weights
-        weight_vector = y_true * one_weight + (1. - y_true) * zero_weight
+        weight_vector = y_true * weight_1 + (1. - y_true) * weight_0
         weighted_b_ce = weight_vector * b_ce
 
         # Return the mean error
@@ -158,9 +209,12 @@ def up_block(from_horizon, upward, cnum, kernel_init, filter_vec=(3,3,1)):
     return merged
 
 def unet(pretrained_weights = None,input_size = (256,256,1),
-         kernel_init='he_normal', num_filters=64,
-         num_maxpool = 4,
-         lr=1e-4, decay=0.0, weight_0=0.5, weight_1=0.5):
+         kernel_init='he_normal', 
+         num_classes=1, last_activation='sigmoid',
+         num_filters=64, num_maxpool = 4, filter_vec=(3,3,1),
+         weight_0=0.5, weight_1=0.5, weights=None,
+         loss='jaccard',optimizer='Adadelta',
+         kernel_regularizer=None,bias_regularizer=None):
     '''
     depth = 4
     inp -> 0-------8 -> out
@@ -176,18 +230,34 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
 
     down_convs = [None] * depth
     for i in range(depth): 
-        down_convs[i], x = down_block(x, 2**i * cnum, kernel_init)
-    x = down_block(x, 2**depth * cnum, kernel_init, maxpool2x=False)    
+        down_convs[i], x = down_block(x, 2**i * cnum, kernel_init, filter_vec=filter_vec)
+    x = down_block(x, 2**depth * cnum, kernel_init, filter_vec=filter_vec, maxpool2x=False)    
     for i in reversed(range(depth)): 
-        x = up_block(down_convs[i], x, 2**i * cnum, kernel_init)
+        x = up_block(down_convs[i], x, 2**i * cnum, kernel_init, filter_vec=filter_vec)
 
-    out = Conv2D(1,(1,1),padding='same',kernel_initializer=kernel_init,activation = 'sigmoid')(x)
+    print('nc:',num_classes, 'la:',last_activation)
+    if last_activation == 'sigmoid':
+        out_channels = 1
+    else:
+        out_channels = num_classes
+    out = Conv2D(out_channels, (1,1), padding='same',
+                 kernel_initializer=kernel_init, activation = last_activation)(x)
 
+    if loss == 'jaccard':
+        loss = lambda y_true,y_pred: jaccard_distance(y_true,y_pred,100)#,weight_1)
+    elif loss == 'wjacc': 
+        loss = lambda y_true,y_pred: weighted_jaccard_distance(y_true,y_pred, weights,100)
+    elif loss == 'wbce': 
+        loss = build_weighted_binary_crossentropy(weight_0, weight_1)
+    elif loss == 'wcce': 
+        loss = weighted_categorical_crossentropy(weights)
+
+    @as_keras_metric
+    def mean_iou(y_true, y_pred):
+        return tf.metrics.mean_iou(y_true, y_pred, num_classes)
     model = Model(input=inp, output=out)
-    from keras_contrib.losses.jaccard import jaccard_distance
-    model.compile(optimizer = Adadelta(lr),#Adam(lr = lr,decay=decay), 
-                  loss=lambda y_true,y_pred:jaccard_distance(y_true,y_pred), #,smooth=lr
-                  metrics=[mean_iou])
+    model.compile(optimizer=optimizer,#Adam(lr = lr,decay=decay), 
+                  loss=loss, metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), loss = 'binary_crossentropy', metrics = ['accuracy'])
     #model.compile(optimizer = Adam(lr = lr,decay=decay), loss='binary_crossentropy',metrics=[mean_iou])
     #model.compile(optimizer = Adam(lr = lr), 
@@ -203,70 +273,6 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
 
 if __name__ == '__main__':
     from keras.utils import plot_model
-    model = unet()
+    model = unet(num_classes=4,last_activation='softmax')
     model.summary()
     plot_model(model, to_file='C_model.png', show_shapes=True)
-
-'''
-conv0, half = down_block( inp, 2**0 * cnum, kernel_init)
-conv1, half = down_block(half, 2**1 * cnum, kernel_init)
-conv2, half = down_block(half, 2**2 * cnum, kernel_init)
-conv3, half = down_block(half, 2**3 * cnum, kernel_init)
-
-conv4       = down_block(half, 2**4 * cnum, kernel_init, maxpool2x=False)
-
-conv5 = up_block(conv3, conv4, 2**3 * cnum, kernel_init)
-conv6 = up_block(conv2, conv5, 2**2 * cnum, kernel_init)
-conv7 = up_block(conv1, conv6, 2**1 * cnum, kernel_init)
-conv8 = up_block(conv0, conv7, 2**0 * cnum, kernel_init)
-'''
-
-'''
-conv1 = set_layer_BN_relu(  inp, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv1 = set_layer_BN_relu(conv1, Conv2D,  64, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv1)
-
-conv2 = set_layer_BN_relu( pool, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv2 = set_layer_BN_relu(conv2, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv2 = set_layer_BN_relu(conv2, Conv2D, 128, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv2)
-
-conv3 = set_layer_BN_relu( pool, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv3 = set_layer_BN_relu(conv3, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv3 = set_layer_BN_relu(conv3, Conv2D, 256, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv3)
-
-conv4 = set_layer_BN_relu( pool, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv4 = set_layer_BN_relu(conv4, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv4 = set_layer_BN_relu(conv4, Conv2D, 512, (1,1), padding='same', kernel_initializer=kernel_init)
-pool = MaxPooling2D(pool_size=(2,2))(conv4)
-
-conv5 = set_layer_BN_relu( pool, Conv2D,1024, (3,3), padding='same', kernel_initializer=kernel_init)
-conv5 = set_layer_BN_relu(conv5, Conv2D,1024, (3,3), padding='same', kernel_initializer=kernel_init)
-conv5 = set_layer_BN_relu(conv5, Conv2D,1024, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv6 = Conv2DTranspose(512, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv5)
-merge6 = concatenate([conv4,conv6], axis=3)
-conv6 = set_layer_BN_relu(merge6, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv6 = set_layer_BN_relu( conv6, Conv2D, 512, (3,3), padding='same', kernel_initializer=kernel_init)
-conv6 = set_layer_BN_relu( conv6, Conv2D, 512, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv7 = Conv2DTranspose(256, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv6)
-merge7 = concatenate([conv3,conv7], axis=3)
-conv7 = set_layer_BN_relu(merge7, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv7 = set_layer_BN_relu( conv7, Conv2D, 256, (3,3), padding='same', kernel_initializer=kernel_init)
-conv7 = set_layer_BN_relu( conv7, Conv2D, 256, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv8 = Conv2DTranspose(128, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv7)
-merge8 = concatenate([conv2,conv8], axis=3)
-conv8 = set_layer_BN_relu(merge8, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv8 = set_layer_BN_relu( conv8, Conv2D, 128, (3,3), padding='same', kernel_initializer=kernel_init)
-conv8 = set_layer_BN_relu( conv8, Conv2D, 128, (1,1), padding='same', kernel_initializer=kernel_init)
-
-conv9 = Conv2DTranspose(64, (2,2), padding='same', strides=(2,2), kernel_initializer=kernel_init)(conv8)
-merge9 = concatenate([conv1,conv9], axis=3)
-conv9 = set_layer_BN_relu(merge9, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (3,3), padding='same', kernel_initializer=kernel_init)
-conv9 = set_layer_BN_relu( conv9, Conv2D,  64, (1,1), padding='same', kernel_initializer=kernel_init)
-'''

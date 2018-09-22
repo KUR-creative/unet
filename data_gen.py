@@ -5,8 +5,10 @@ def augmenter(batch_size=4, crop_size=256, num_channels=3,
               crop_before_augs=(), crop_after_augs=()):
     n_img = batch_size
     size = crop_size
-    n_ch = num_channels
+    #n_ch = num_channels
     def func_images(images, random_state, parents, hooks):
+        """ random cropping """
+        _,_,n_ch = images[0].shape
         ret_imgs = np.empty((n_img,size,size,n_ch))
         for idx,img in enumerate(images):
             h,w,c = img.shape
@@ -30,6 +32,52 @@ def augmenter(batch_size=4, crop_size=256, num_channels=3,
     )
     print(aug_list)
     return iaa.Sequential(aug_list)
+
+def bgr2bgrk(bgr_img):
+    ''' 
+    [arg]
+    bgr_img.shape = (n,h,w,3) 
+    4 class: 
+      b: 1 0 0
+      g: 0 1 0
+      r: 0 0 1
+      k: 0 0 0
+     [return]
+    bgrk_img.shape = (n,h,w,4)
+      b: 1 0 0 0
+      g: 0 1 0 0
+      r: 0 0 1 0
+      k: 0 0 0 1
+    '''
+    #assert len(bgr_img.shape) == 4
+    #assert len(bgr_img.shape == 4
+    nhw1 = bgr_img.shape[:-1] + (1,)
+    k = np.logical_not(np.sum(bgr_img, axis=-1)) \
+          .astype(bgr_img.dtype) \
+          .reshape(nhw1)
+    bgrk_img = np.concatenate([bgr_img,k], axis=-1)
+    return bgrk_img
+
+def bgrk2bgr(bgrk_img):
+    ''' 
+    [arg]
+    bgrk_img.shape = (n,h,w,4)
+      b: 1 0 0 0
+      g: 0 1 0 0
+      r: 0 0 1 0
+      k: 0 0 0 1
+     [return]
+    bgr_img.shape = (n,h,w,3) 
+    4 class: 
+      b: 1 0 0
+      g: 0 1 0
+      r: 0 0 1
+      k: 0 0 0
+    '''
+    if len(bgrk_img.shape) == 4:
+        return bgrk_img[:,:,:,:3]
+    else:
+        return bgrk_img[:,:,:3]
 
 import cv2
 from utils import file_paths, load_imgs
