@@ -15,6 +15,7 @@ import evaluator
 from keras import backend as K
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
+from keras import regularizers
 
 def bgrk_weights(masks):
     n_all, n_bgrk = 0, [0,0,0,0]
@@ -45,7 +46,7 @@ def weight01(imgs):
 
 def batch_gen(imgs, masks, batch_size, 
               both_aug=None, img_aug=None, mask_aug=None,
-              num_classes=2):
+              num_classes=1):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
@@ -109,6 +110,8 @@ def main(experiment_yml_path):
     loss = config.get('loss')
     optimizer = config.get('optimizer')
     learning_rate = config.get('learning_rate')
+    l1_reg = config.get('l1_reg')
+    l2_reg = config.get('l2_reg')
 
     loaded_model = None
     #--------------------------------------------------------------------
@@ -244,6 +247,17 @@ def main(experiment_yml_path):
         if learning_rate is None: learning_rate = 0.001
         optimizer = Adam(lr=learning_rate)
 
+    kernel_regularizer = bias_regularizer = None
+    if (l1_reg is not None) and (l2_reg is not None):
+        kernel_regularizer = regularizers.l1_l2(l1=l1_reg, l2=l2_reg)
+        bias_regularizer = regularizers.l1_l2(l1=l1_reg, l2=l2_reg)
+    elif l1_reg is not None:
+        kernel_regularizer = regularizers.l1(l1_reg)
+        bias_regularizer = regularizers.l1(l1_reg)
+    elif l2_reg is not None:
+        kernel_regularizer = regularizers.l2(l2_reg)
+        bias_regularizer = regularizers.l2(l2_reg)
+
     print('filter_vec = ', filter_vec)
 
     print('nc:',num_classes, 'la:',last_activation)
@@ -252,9 +266,9 @@ def main(experiment_yml_path):
                  kernel_init=kernel_init, 
                  num_classes=num_classes, last_activation=last_activation,
                  num_filters=num_filters, num_maxpool=num_maxpool, filter_vec=filter_vec,
+                 weight_0=w0, weight_1=w1, weights=weights,
                  loss=loss, optimizer=optimizer,
-                 weight_0=w0, weight_1=w1, weights=weights)
-    #model.summary()
+                 kernel_regularizer=kernel_regularizer,bias_regularizer=bias_regularizer)
 
     model_checkpoint = ModelCheckpoint(save_model_path, monitor='val_loss',
                                         verbose=1, save_best_only=True)

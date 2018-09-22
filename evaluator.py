@@ -126,7 +126,10 @@ def evaluate_manga(segnet, inputs, answers, modulo=16):
         #print('org',org_h,org_w)
         if segmap.shape[-1] != 1:
             segmap = np.sum(segmap, axis=-1)
-            segmap = segmap.reshape(segmap.shape[1:])
+        segmap = segmap.reshape(segmap.shape[1:])
+        #print(inp.shape)
+        #print(answer.shape)
+        #print(segmap.shape)
         inp = inp[:org_h,:org_w].reshape((org_h,org_w))
         answer = answer[:org_h,:org_w].reshape((org_h,org_w))  
         segmap = segmap[:org_h,:org_w].reshape((org_h,org_w))

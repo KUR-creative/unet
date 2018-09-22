@@ -165,7 +165,7 @@ def as_keras_metric(method):
     return wrapper
 
 @as_keras_metric
-def mean_iou_(y_true, y_pred, num_classes=2):
+def mean_iou_(y_true, y_pred, num_classes=1):
     return tf.metrics.mean_iou(y_true, y_pred, num_classes)
 
 def build_weighted_binary_crossentropy(weight_0, weight_1):
@@ -213,7 +213,8 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
          num_classes=1, last_activation='sigmoid',
          num_filters=64, num_maxpool = 4, filter_vec=(3,3,1),
          weight_0=0.5, weight_1=0.5, weights=None,
-         loss='jaccard',optimizer='Adadelta'):
+         loss='jaccard',optimizer='Adadelta',
+         kernel_regularizer=None,bias_regularizer=None):
     '''
     depth = 4
     inp -> 0-------8 -> out
@@ -235,7 +236,11 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
         x = up_block(down_convs[i], x, 2**i * cnum, kernel_init, filter_vec=filter_vec)
 
     print('nc:',num_classes, 'la:',last_activation)
-    out = Conv2D(num_classes, (1,1), padding='same',
+    if last_activation == 'sigmoid':
+        out_channels = 1
+    else:
+        out_channels = num_classes
+    out = Conv2D(out_channels, (1,1), padding='same',
                  kernel_initializer=kernel_init, activation = last_activation)(x)
 
     if loss == 'jaccard':
