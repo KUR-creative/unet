@@ -20,6 +20,12 @@ def jaccard_coefficient(y_true, y_pred, smooth=100, weight1=1.):
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
     return jac
 
+def weighted_jaccard_distance(y_true, y_pred, weights, smooth=100):
+    intersection = K.sum(K.abs(y_true * y_pred), axis=(1,2))[:] * weights
+    sum_ = K.sum(y_true + y_pred, axis=(1,2))[:] * weights
+
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return K.mean((1 - K.mean(jac)) * smooth)
 '''
 def jaccard_distance(y_true, y_pred, smooth=100, weight1=1.):
     intersection = K.sum(K.abs(y_true * y_pred), axis=(1,2,3))
@@ -233,10 +239,12 @@ def unet(pretrained_weights = None,input_size = (256,256,1),
                  kernel_initializer=kernel_init, activation = last_activation)(x)
 
     if loss == 'jaccard':
-        loss = lambda y_true,y_pred:jaccard_distance(y_true,y_pred,100)#,weight_1)
+        loss = lambda y_true,y_pred: jaccard_distance(y_true,y_pred,100)#,weight_1)
+    elif loss == 'wjacc': 
+        loss = lambda y_true,y_pred: weighted_jaccard_distance(y_true,y_pred, weights,100)
     elif loss == 'wbce': 
         loss = build_weighted_binary_crossentropy(weight_0, weight_1)
-    elif loss == 'wc_bce': 
+    elif loss == 'wcce': 
         loss = weighted_categorical_crossentropy(weights)
 
     @as_keras_metric

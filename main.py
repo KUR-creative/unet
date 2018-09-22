@@ -45,7 +45,7 @@ def weight01(imgs):
 
 def batch_gen(imgs, masks, batch_size, 
               both_aug=None, img_aug=None, mask_aug=None,
-              num_classes=1):
+              num_classes=2):
     assert len(imgs) == len(masks)
     img_flow = cycle(imgs)
     mask_flow = cycle(masks)
@@ -125,7 +125,8 @@ def main(experiment_yml_path):
     #--------------------------------------------------------------------
 
     #-------------------- ready to generate batch -----------------------
-    mask_type = cv2.IMREAD_GRAYSCALE if num_classes == 1 else cv2.IMREAD_COLOR
+    if num_classes is None: num_classes = 2
+    mask_type = cv2.IMREAD_GRAYSCALE if num_classes == 2 else cv2.IMREAD_COLOR
     train_imgs = list(load_imgs(os.path.join(train_dir,'image')))
     train_masks =list(load_imgs(os.path.join(train_dir,'label'), mask_type))
     valid_imgs = list(load_imgs(os.path.join(valid_dir,'image')))
@@ -210,9 +211,9 @@ def main(experiment_yml_path):
     if sqr_crop_dataset:
         aug = None
 
-    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug, img_aug, num_classes=4)
-    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug, img_aug, num_classes=4)
-    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug, img_aug, num_classes=4)
+    my_gen = batch_gen(train_imgs, train_masks, BATCH_SIZE, aug, img_aug, num_classes=num_classes)
+    valid_gen = batch_gen(valid_imgs, valid_masks, BATCH_SIZE, aug, img_aug, num_classes=num_classes)
+    test_gen = batch_gen(test_imgs, test_masks, BATCH_SIZE, aug, img_aug, num_classes=num_classes)
     #--------------------------------------------------------------------
     '''
     # DEBUG
@@ -231,7 +232,7 @@ def main(experiment_yml_path):
     if num_filters is None: num_filters = 64
     if filter_vec is None: filter_vec = (3,3,1)
     if loss is None: 'jaccard'
-    if (num_classes is None) or num_classes == 1:
+    if num_classes == 2:
         last_activation = 'sigmoid'
     else:
         last_activation = 'softmax'
@@ -263,9 +264,9 @@ def main(experiment_yml_path):
         steps_per_epoch=train_steps_per_epoch, 
         validation_steps=valid_steps_per_epoch,
         validation_data=valid_gen, 
-        callbacks=[model_checkpoint,
-                   TensorBoard(log_dir=experiment_name+'_logs',
-                               batch_size=BATCH_SIZE, write_graph=False)])
+        callbacks=[model_checkpoint,])
+                   #TensorBoard(log_dir=experiment_name+'_logs',
+                               #batch_size=BATCH_SIZE, write_graph=False)])
     train_time_str = train_timer.elapsed_time()
     #--------------------------------------------------------------------
 
