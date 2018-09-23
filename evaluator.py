@@ -97,7 +97,7 @@ def segment(segnet, inp, modulo=16):
     else:
         return result # image inpainted successfully!
 
-from tensorflow.errors import ResourceExhaustedError
+#from tensorflow.errors import ResourceExhaustedError
 def evaluate_manga(segnet, inputs, answers, modulo=16):
     result_tuples = []
     iou_arr = []
